@@ -3,15 +3,15 @@ import Layout from '../../layouts/Layout.astro';
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { marked } from 'marked';
+import { SITE_CONFIG } from '../../config';
 
 export function getStaticPaths() {
   try {
     const dir = join(process.cwd(), 'projects');
-    const files = readdirSync(dir).filter(f => f.endsWith('.json'));
-    return files.map(f => ({ params: { slug: f.replace('.json', '') } }));
-  } catch {
-    return [];
-  }
+    return readdirSync(dir)
+      .filter(f => f.endsWith('.json'))
+      .map(f => ({ params: { slug: f.replace('.json', '') } }));
+  } catch { return []; }
 }
 
 const { slug } = Astro.params as { slug: string };
@@ -22,11 +22,9 @@ type Project = {
   display_name?: string;
   description?: string;
   version?: string;
-  runtime?: string;
   tags?: string[];
-  api_endpoint?: string;
   repo_url?: string;
-  region?: string;
+  status?: string;
   docs_updated_at?: string;
   changelog_updated_at?: string;
 };
@@ -35,31 +33,103 @@ const project: Project = JSON.parse(
   readFileSync(join(process.cwd(), 'projects', `${slug}.json`), 'utf-8')
 );
 
-// --- Docs ---
-type DocFile = { id: string; label: string; html: string };
+// ── Icon system ────────────────────────────────────────────────────
+type IconPaths = string | string[];
 
-// Well-known labels for common filenames
+const ICONS: Record<string, IconPaths> = {
+  home:         'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  layers:       ['M12 2L2 7l10 5 10-5-10-5z','M2 17l10 5 10-5','M2 12l10 5 10-5'],
+  terminal:     ['M4 17L10 11 4 5','M12 19H20'],
+  code:         ['M16 18L22 12 16 6','M8 6L2 12 8 18'],
+  zap:          'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
+  file:         ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z','M14 2v6h6'],
+  book:         ['M4 19.5A2.5 2.5 0 0 1 6.5 17H20','M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'],
+  changelog:    ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z','M14 2v6h6','M16 13H8','M16 17H8','M10 9H8'],
+  clock:        ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z','M12 6v6l4 2'],
+  shield:       'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  database:     ['M12 2c-5 0-9 1.34-9 3s4 3 9 3 9-1.34 9-3-4-3-9-3z','M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5','M3 12c0 1.66 4 3 9 3s9-1.34 9-3'],
+  settings:     ['M4 21v-7','M4 10V3','M12 21v-9','M12 8V3','M20 21v-5','M20 12V3','M1 14h6','M9 8h6','M17 16h6'],
+  list:         ['M8 6h13','M8 12h13','M8 18h13','M3 6h.01','M3 12h.01','M3 18h.01'],
+  star:         'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+  link:         ['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71','M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'],
+  chart:        ['M18 20V10','M12 20V4','M6 20v-6'],
+  package:      ['M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z','M3.27 6.96L12 12.01l8.73-5.05','M12 22.08V12'],
+  github:       'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22',
+};
+
+// Auto-detect icon from filename when no frontmatter icon is set
+const ICON_AUTO: Record<string, string> = {
+  readme:           'home',
+  overview:         'home',
+  visao:            'home',
+  architecture:     'layers',
+  arch:             'layers',
+  arquitetura:      'layers',
+  usage:            'terminal',
+  'como-usar':      'terminal',
+  'getting-started':'terminal',
+  setup:            'settings',
+  config:           'settings',
+  configuration:    'settings',
+  api:              'zap',
+  reference:        'list',
+  referencias:      'list',
+  security:         'shield',
+  seguranca:        'shield',
+  database:         'database',
+  data:             'database',
+  changelog:        'clock',
+  changes:          'clock',
+  releases:         'clock',
+  contributing:     'star',
+  deploy:           'package',
+  deployment:       'package',
+  monitoring:       'chart',
+  metrics:          'chart',
+  github:           'github',
+  links:            'link',
+  code:             'code',
+  examples:         'code',
+  exemplos:         'code',
+};
+
+function getAutoIcon(id: string): string {
+  const clean = id.toLowerCase().replace(/^\d+-/, '').replace(/[_]/g, '-');
+  for (const [key, icon] of Object.entries(ICON_AUTO)) {
+    if (clean === key || clean.startsWith(key) || clean.endsWith(key) || clean.includes(key)) return icon;
+  }
+  return 'file';
+}
+
+// Parse YAML frontmatter — extracts `icon:` and optional `title:` fields
+function parseFrontmatter(raw: string): { icon?: string; title?: string; stripped: string } {
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  if (!match) return { stripped: raw };
+  const yaml = match[1];
+  const stripped = match[2];
+  const icon  = yaml.match(/^icon:\s*(.+)$/m)?.[1]?.trim();
+  const title = yaml.match(/^title:\s*(.+)$/m)?.[1]?.trim();
+  return { icon, title, stripped };
+}
+
+// ── Docs ──────────────────────────────────────────────────────────
+type DocFile = { id: string; label: string; html: string; icon: string };
+
 const DOC_LABELS: Record<string, string> = {
   README: 'Visão Geral',
   architecture: 'Arquitetura',
   usage: 'Como Usar',
   api: 'API Reference',
 };
-
-// Well-known files without numeric prefix get this order
 const DOC_ORDER = ['README', 'architecture', 'usage', 'api'];
-
-// Strips numeric prefix and converts to Title Case
-// "01-getting-started" → "Getting Started"
-// "faq"               → "FAQ" (all-caps shorthand)
 const ALL_CAPS = new Set(['api', 'faq', 'sdk', 'cli', 'iam', 'sql', 'ci', 'cd']);
-function toLabel(filename: string): string {
+
+function toLabel(filename: string, frontmatterTitle?: string): string {
+  if (frontmatterTitle) return frontmatterTitle;
   const id = filename.replace(/^\d+-/, '');
   if (DOC_LABELS[id]) return DOC_LABELS[id];
   if (ALL_CAPS.has(id.toLowerCase())) return id.toUpperCase();
-  return id
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
+  return id.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 let docs: DocFile[] = [];
@@ -68,17 +138,10 @@ if (existsSync(docsDir)) {
   const files = readdirSync(docsDir)
     .filter(f => f.endsWith('.md'))
     .sort((a, b) => {
-      const aBase = a.replace('.md', '');
-      const bBase = b.replace('.md', '');
-      // Files with numeric prefix (e.g. "01-intro.md") sort by that number first
-      const aNum = parseInt(aBase.match(/^(\d+)/)?.[1] ?? '');
-      const bNum = parseInt(bBase.match(/^(\d+)/)?.[1] ?? '');
-      if (!isNaN(aNum) || !isNaN(bNum)) {
-        return (isNaN(aNum) ? 999 : aNum) - (isNaN(bNum) ? 999 : bNum);
-      }
-      // Otherwise use well-known order, then alphabetical
-      const aOrd = DOC_ORDER.indexOf(aBase);
-      const bOrd = DOC_ORDER.indexOf(bBase);
+      const [aBase, bBase] = [a, b].map(f => f.replace('.md', ''));
+      const [aNum, bNum] = [aBase, bBase].map(s => parseInt(s.match(/^(\d+)/)?.[1] ?? ''));
+      if (!isNaN(aNum) || !isNaN(bNum)) return (isNaN(aNum) ? 999 : aNum) - (isNaN(bNum) ? 999 : bNum);
+      const [aOrd, bOrd] = [aBase, bBase].map(s => DOC_ORDER.indexOf(s));
       if (aOrd !== bOrd) return (aOrd === -1 ? 999 : aOrd) - (bOrd === -1 ? 999 : bOrd);
       return aBase.localeCompare(bBase);
     });
@@ -86,274 +149,332 @@ if (existsSync(docsDir)) {
   docs = files.map(f => {
     const id = f.replace('.md', '');
     const raw = readFileSync(join(docsDir, f), 'utf-8');
-    return { id, label: toLabel(id), html: String(marked.parse(raw)) };
+    const { icon, title, stripped } = parseFrontmatter(raw);
+    return {
+      id,
+      label: toLabel(id, title),
+      html:  String(marked.parse(stripped)),
+      icon:  icon && ICONS[icon] ? icon : getAutoIcon(id),
+    };
   });
 }
 
-// --- Changelog ---
+// ── Changelog ─────────────────────────────────────────────────────
 let changelogHtml = '';
 const changelogPath = join(process.cwd(), 'changelogs', `${slug}.md`);
 if (existsSync(changelogPath)) {
   changelogHtml = String(marked.parse(readFileSync(changelogPath, 'utf-8')));
 }
 
-// --- Helpers ---
-const RUNTIME_STYLES: Record<string, string> = {
-  python: 'text-blue-400 bg-blue-950/60 border-blue-900/60',
-  nodejs: 'text-green-400 bg-green-950/60 border-green-900/60',
-  node:   'text-green-400 bg-green-950/60 border-green-900/60',
-  go:     'text-cyan-400 bg-cyan-950/60 border-cyan-900/60',
-  rust:   'text-orange-400 bg-orange-950/60 border-orange-900/60',
-};
-
-function runtimeStyle(rt: string | undefined): string {
-  if (!rt) return 'text-slate-400 bg-slate-800/60 border-slate-700/60';
-  const k = Object.keys(RUNTIME_STYLES).find(k => rt.toLowerCase().includes(k));
-  return k ? RUNTIME_STYLES[k] : 'text-slate-400 bg-slate-800/60 border-slate-700/60';
-}
-
-function fmtDate(iso: string | undefined): string {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-}
+const status = project.status || 'active';
 ---
 
 <Layout title={`${project.display_name ?? slug} · Portfolio`}>
 
-  <!-- Back -->
-  <div class="max-w-6xl mx-auto px-4 pt-8">
-    <a href={`${base}/`} class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-200 transition-colors">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-      </svg>
-      Portfolio
-    </a>
-  </div>
-
-  <!-- Header -->
-  <header class="max-w-6xl mx-auto px-4 pt-6 pb-8 border-b border-slate-800/60">
-    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
-      <div class="flex-1">
-        <h1 class="text-2xl font-bold text-slate-100 mb-1 leading-tight">
-          {project.display_name ?? slug}
-        </h1>
-        <p class="text-xs font-mono text-slate-600 mb-3">{slug}</p>
-        {project.description && (
-          <p class="text-slate-400 max-w-2xl leading-relaxed">{project.description}</p>
-        )}
-
-        <div class="flex flex-wrap gap-2 mt-4">
-          {project.runtime && (
-            <span class={`text-xs font-mono px-2.5 py-1 rounded-md border ${runtimeStyle(project.runtime)}`}>
-              {project.runtime}
+  <!-- ── STICKY HEADER ───────────────────────────────────── -->
+  <header id="docs-header">
+    <div class="header-inner">
+      <div class="header-left">
+        <a href={`${base}/`} class="back-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Portfolio
+        </a>
+        <span class="breadcrumb-sep">/</span>
+        <div class="header-project">
+          <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+            <path d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z" stroke="var(--accent)" stroke-width="2"/>
+            <path d="M15 32 L15 17 L24 27 L33 17 L33 32" stroke="#f0f0fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="36" r="2" fill="var(--accent)"/>
+          </svg>
+          <span class="header-project-name">{project.display_name ?? slug}</span>
+          <span class="header-version">{project.version ? `v${project.version}` : '—'}</span>
+          {status === 'active' && (
+            <span class="header-badge-active">
+              <span class="badge-pulse"></span>Active
             </span>
           )}
-          {project.region && (
-            <span class="text-xs font-mono px-2.5 py-1 rounded-md border text-slate-500 bg-slate-800/50 border-slate-700/60">
-              {project.region}
-            </span>
+          {status === 'wip' && (
+            <span class="header-badge-wip">WIP</span>
           )}
-          {(project.tags ?? []).map((tag: string) => (
-            <span class="text-xs px-2.5 py-1 rounded-md border text-slate-600 bg-slate-800/30 border-slate-800">
-              #{tag}
-            </span>
-          ))}
         </div>
       </div>
-
-      <div class="flex flex-col items-start sm:items-end gap-3 flex-shrink-0">
-        <div class="flex items-center gap-3">
-          <span class="text-base font-mono font-medium text-slate-300">
-            v{project.version ?? '0.0.0'}
-          </span>
-          {project.api_endpoint && (
-            <div id="live-status" data-endpoint={project.api_endpoint}
-                 class="flex items-center gap-1.5 text-xs text-slate-600">
-              <span id="status-dot" class="w-2 h-2 rounded-full bg-slate-700 animate-pulse"></span>
-              <span id="status-text">verificando...</span>
-            </div>
-          )}
-        </div>
-
-        <div class="flex items-center gap-2">
-          {project.repo_url && (
-            <a
-              href={project.repo_url}
-              target="_blank"
-              rel="noopener"
-              class="text-xs text-slate-500 hover:text-slate-100 transition-colors flex items-center gap-1.5 border border-slate-800 rounded-lg px-3 py-1.5 hover:border-slate-600"
-            >
-              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-              </svg>
-              Repositório
-            </a>
-          )}
-          {project.api_endpoint && (
-            <a
-              href={`${project.api_endpoint}/health`}
-              target="_blank"
-              rel="noopener"
-              class="text-xs text-emerald-500 hover:text-emerald-300 transition-colors flex items-center gap-1.5 border border-emerald-900/60 rounded-lg px-3 py-1.5 bg-emerald-950/30 hover:bg-emerald-950/60"
-            >
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              Demo ao vivo
-            </a>
-          )}
-        </div>
+      <div class="header-right">
+        {project.repo_url && (
+          <a href={project.repo_url} target="_blank" rel="noopener" class="header-gh-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            GitHub
+          </a>
+        )}
       </div>
     </div>
   </header>
 
-  <!-- Tabs -->
-  <div class="max-w-6xl mx-auto px-4">
-    <div class="flex border-b border-slate-800/60">
-      <button
-        data-tab-btn="docs"
-        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition-colors"
-      >
-        Documentation
-        {docs.length > 0 && (
-          <span class="ml-1.5 text-xs font-mono text-slate-700">{docs.length}</span>
-        )}
-      </button>
-      <button
-        data-tab-btn="changelog"
-        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition-colors"
-      >
-        Changelog
-        {project.version && (
-          <span class="ml-1.5 text-xs font-mono text-slate-700">{project.version}</span>
-        )}
-      </button>
-    </div>
+  <!-- ── BODY LAYOUT ─────────────────────────────────────── -->
+  <div class="docs-body">
+
+    <!-- SIDEBAR -->
+    <aside class="docs-sidebar">
+      {docs.length > 0 && (
+        <div class="sidebar-group">
+          <div class="sidebar-label">Documentação</div>
+          {docs.map((doc, i) => {
+            const paths = ICONS[doc.icon] ?? ICONS['file'];
+            return (
+              <button
+                class={`sidebar-btn ${i === 0 ? 'sidebar-active' : ''}`}
+                data-doc={doc.id}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0;">
+                  {Array.isArray(paths) ? paths.map(d => <path d={d}/>) : <path d={paths}/>}
+                </svg>
+                {doc.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {changelogHtml && (
+        <div class="sidebar-group">
+          <div class="sidebar-label">Releases</div>
+          {(() => {
+            const paths = ICONS['clock'];
+            return (
+              <button class={`sidebar-btn ${docs.length === 0 ? 'sidebar-active' : ''}`} data-doc="__changelog">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0;">
+                  {Array.isArray(paths) ? paths.map(d => <path d={d}/>) : <path d={paths}/>}
+                </svg>
+                Changelog
+              </button>
+            );
+          })()}
+        </div>
+      )}
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="docs-main">
+
+      <!-- Tab pills (mirrors sidebar) -->
+      <div class="tab-pills">
+        {docs.map((doc, i) => {
+          const paths = ICONS[doc.icon] ?? ICONS['file'];
+          return (
+            <button
+              class={`tab-pill ${i === 0 ? 'tab-pill-active' : ''}`}
+              data-tab={doc.id}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">
+                {Array.isArray(paths) ? paths.map(d => <path d={d}/>) : <path d={paths}/>}
+              </svg>
+              {doc.label}
+            </button>
+          );
+        })}
+        {changelogHtml && (() => {
+          const paths = ICONS['clock'];
+          return (
+            <button
+              class={`tab-pill ${docs.length === 0 ? 'tab-pill-active' : ''}`}
+              data-tab="__changelog"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">
+                {Array.isArray(paths) ? paths.map(d => <path d={d}/>) : <path d={paths}/>}
+              </svg>
+              Changelog
+            </button>
+          );
+        })()}
+      </div>
+
+      <!-- Doc panels -->
+      {docs.map((doc, i) => (
+        <div class={`doc-panel ${i === 0 ? '' : 'hidden'}`} data-panel={doc.id}>
+          <div class="prose prose-invert" set:html={doc.html} />
+        </div>
+      ))}
+
+      <!-- Changelog panel -->
+      {changelogHtml && (
+        <div
+          class={`doc-panel changelog-content ${docs.length === 0 ? '' : 'hidden'}`}
+          data-panel="__changelog"
+        >
+          <div class="prose prose-invert" set:html={changelogHtml} />
+        </div>
+      )}
+
+      {docs.length === 0 && !changelogHtml && (
+        <div class="empty-state">
+          <p class="empty-msg">Sem conteúdo ainda.</p>
+          <p class="empty-hint">Adicione arquivos em <code>docs/{slug}/</code> ou <code>changelogs/{slug}.md</code></p>
+        </div>
+      )}
+
+      {(project.docs_updated_at || project.changelog_updated_at) && (
+        <div class="timestamps">
+          {project.docs_updated_at && (
+            <span>docs: {new Date(project.docs_updated_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+          )}
+          {project.changelog_updated_at && (
+            <span>release: {new Date(project.changelog_updated_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+          )}
+        </div>
+      )}
+
+    </main>
   </div>
-
-  <!-- Content -->
-  <main class="max-w-6xl mx-auto px-4 py-10">
-
-    <!-- DOCS TAB -->
-    <div data-tab-content="docs" class="hidden">
-      {docs.length > 0 ? (
-        <div class="flex flex-col md:flex-row gap-10">
-          <!-- Sidebar -->
-          <aside class="md:w-44 flex-shrink-0">
-            <nav class="sticky top-20 flex flex-row flex-wrap md:flex-col gap-1">
-              {docs.map((doc, i) => (
-                <button
-                  data-doc-btn={doc.id}
-                  class={`doc-nav-btn text-left px-3 py-2 rounded-lg text-sm transition-all text-slate-500 hover:text-slate-200 hover:bg-slate-800/70 ${i === 0 ? 'doc-nav-active' : ''}`}
-                >
-                  {doc.label}
-                </button>
-              ))}
-            </nav>
-          </aside>
-
-          <!-- Content -->
-          <div class="flex-1 min-w-0">
-            {docs.map((doc, i) => (
-              <div
-                data-doc-content={doc.id}
-                class={`prose prose-invert prose-slate max-w-none doc-content ${i !== 0 ? 'hidden' : ''}`}
-                set:html={doc.html}
-              />
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div class="border border-dashed border-slate-800 rounded-2xl py-20 text-center">
-          <p class="text-sm font-mono text-slate-600">Sem documentação.</p>
-          <p class="text-xs text-slate-700 mt-2">
-            Adicione arquivos em <code class="text-indigo-700">docs/{slug}/</code>
-          </p>
-        </div>
-      )}
-    </div>
-
-    <!-- CHANGELOG TAB -->
-    <div data-tab-content="changelog" class="hidden">
-      {changelogHtml ? (
-        <div class="prose prose-invert prose-slate max-w-4xl changelog-content" set:html={changelogHtml} />
-      ) : (
-        <div class="border border-dashed border-slate-800 rounded-2xl py-20 text-center">
-          <p class="text-sm font-mono text-slate-600">Sem changelog.</p>
-          <p class="text-xs text-slate-700 mt-2">
-            Adicione <code class="text-indigo-700">changelogs/{slug}.md</code>
-          </p>
-        </div>
-      )}
-    </div>
-
-  </main>
-
-  <!-- Meta footer -->
-  {(project.docs_updated_at || project.changelog_updated_at) && (
-    <div class="max-w-6xl mx-auto px-4 pb-10 flex flex-wrap gap-5 text-xs font-mono text-slate-700 border-t border-slate-800/40 pt-5">
-      {project.docs_updated_at && (
-        <span>docs atualizado: {fmtDate(project.docs_updated_at)}</span>
-      )}
-      {project.changelog_updated_at && (
-        <span>release: {fmtDate(project.changelog_updated_at)}</span>
-      )}
-    </div>
-  )}
 
 </Layout>
 
 <style>
-  .tab-btn.tab-active {
-    @apply border-indigo-500 text-indigo-400;
+  /* ── HEADER ── */
+  #docs-header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(8, 8, 15, 0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
   }
-  .doc-nav-active {
-    @apply text-indigo-400 bg-slate-800/60 !important;
+  .header-inner {
+    max-width: 1100px; margin: 0 auto;
+    padding: 0 24px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header-left {
+    display: flex; align-items: center; gap: 12px; min-width: 0;
+  }
+  .back-link {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--fg-3); font-size: 13px; transition: color 150ms;
+    flex-shrink: 0;
+  }
+  .back-link:hover { color: var(--fg-1); }
+  .breadcrumb-sep { color: var(--border); flex-shrink: 0; }
+  .header-project {
+    display: flex; align-items: center; gap: 8px; min-width: 0;
+  }
+  .header-project-name {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 14px; color: var(--fg-1); letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .header-version {
+    font-family: var(--font-mono); font-size: 11px; color: var(--fg-3);
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 5px; padding: 1px 8px; flex-shrink: 0;
+  }
+  .header-badge-active {
+    background: oklch(68% 0.2 155 / 0.12); color: var(--success);
+    border: 1px solid oklch(68% 0.2 155 / 0.25);
+    border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  }
+  .badge-pulse {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor; display: inline-block;
+  }
+  .header-badge-wip {
+    background: oklch(75% 0.18 70 / 0.12); color: var(--warn);
+    border: 1px solid oklch(75% 0.18 70 / 0.25);
+    border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .header-gh-btn {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--fg-2);
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 12px; transition: all 150ms;
+    white-space: nowrap;
+  }
+  .header-gh-btn:hover { color: var(--fg-1); border-color: var(--border-bright); }
+
+  /* ── BODY LAYOUT ── */
+  .docs-body {
+    display: flex; max-width: 1100px;
+    margin: 0 auto; padding: 0 24px;
   }
 
-  /* Prose overrides */
-  :global(.prose pre) {
-    @apply border border-slate-800/70 bg-slate-900 !important;
+  /* ── SIDEBAR ── */
+  .docs-sidebar {
+    width: 210px; flex-shrink: 0;
+    position: sticky; top: 60px;
+    height: calc(100vh - 60px); overflow-y: auto;
+    padding: 24px 16px 24px 0;
+    border-right: 1px solid var(--border);
   }
-  :global(.prose code:not(pre code)) {
-    @apply text-indigo-300 bg-indigo-950/40 px-1 py-0.5 rounded text-[0.85em] before:content-none after:content-none;
+  .sidebar-group { margin-bottom: 24px; }
+  .sidebar-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--fg-4);
+    margin-bottom: 6px; padding-left: 10px;
   }
-  :global(.prose h1, .prose h2, .prose h3) {
-    @apply scroll-mt-20;
+  .sidebar-btn {
+    width: 100%; text-align: left;
+    background: none; border: none; border-radius: 7px;
+    padding: 7px 10px; color: var(--fg-2);
+    cursor: pointer; font-size: 13px; font-weight: 400;
+    display: flex; align-items: center; gap: 8px;
+    transition: all 150ms; font-family: var(--font-body);
+    margin-bottom: 2px; line-height: 1.3;
   }
-  :global(.prose h2) {
-    @apply border-b border-slate-800/60 pb-2;
-  }
-  :global(.prose table) {
-    @apply border-collapse;
-  }
-  :global(.prose th) {
-    @apply bg-slate-900 text-slate-300;
-  }
-  :global(.prose tr:nth-child(even)) {
-    @apply bg-slate-900/40;
-  }
-  :global(.prose blockquote) {
-    @apply border-indigo-800 bg-indigo-950/20 rounded-r-lg;
-  }
-
-  /* Mermaid diagram containers */
-  :global(.mermaid) {
-    @apply bg-slate-900/60 rounded-xl p-6 border border-slate-800/70 overflow-x-auto my-6;
-    /* reset prose list/typography on mermaid containers */
-    font-size: initial;
-    line-height: initial;
-  }
-  :global(.mermaid svg) {
-    max-width: 100%;
-    height: auto;
+  .sidebar-btn:hover { color: var(--fg-1); background: var(--bg-elevated); }
+  .sidebar-active {
+    background: oklch(65% 0.28 268 / 0.1) !important;
+    color: var(--accent) !important;
+    font-weight: 600 !important;
   }
 
-  /* Changelog version entries */
-  :global(.changelog-content h2) {
-    @apply flex items-center gap-3;
+  /* ── MAIN CONTENT ── */
+  .docs-main {
+    flex: 1; padding: 28px 0 80px 36px; min-width: 0;
   }
-  :global(.changelog-content h2::before) {
-    content: 'v';
-    @apply text-indigo-500 font-mono text-sm;
+
+  /* ── TAB PILLS ── */
+  .tab-pills {
+    display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .tab-pill {
+    background: var(--bg-surface); color: var(--fg-2);
+    border: 1px solid var(--border);
+    padding: 5px 12px; border-radius: 9999px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: var(--font-body); transition: all 150ms;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .tab-pill:hover { border-color: var(--border-bright); }
+  .tab-pill-active {
+    background: var(--accent) !important;
+    color: #fff !important;
+    border-color: transparent !important;
+    box-shadow: 0 0 14px oklch(65% 0.28 268 / 0.28);
+  }
+
+  /* ── PANELS ── */
+  .hidden { display: none !important; }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    border: 1px dashed var(--border); border-radius: 16px;
+    padding: 72px 24px; text-align: center;
+  }
+  .empty-msg { font-size: 13px; color: var(--fg-3); font-family: var(--font-mono); }
+  .empty-hint { font-size: 12px; color: var(--fg-4); margin-top: 8px; }
+  .empty-hint code { color: var(--accent); font-family: var(--font-mono); }
+
+  /* ── TIMESTAMPS ── */
+  .timestamps {
+    display: flex; flex-wrap: wrap; gap: 20px;
+    font-size: 11px; font-family: var(--font-mono); color: var(--fg-4);
+    border-top: 1px solid var(--border);
+    padding-top: 20px; margin-top: 40px;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .docs-sidebar { display: none; }
+    .docs-main { padding-left: 0; }
+    .header-project-name { max-width: 120px; }
+    .header-badge-active, .header-badge-wip { display: none; }
   }
 </style>
 
@@ -370,90 +491,50 @@ function fmtDate(iso: string | undefined): string {
     });
   }
 
-  async function renderMermaidIn(container) {
-    const m = window.__mermaid;
+  async function renderMermaidIn(container: Element) {
+    const m = (window as any).__mermaid;
     if (!m) return;
     const nodes = Array.from(container.querySelectorAll('.mermaid:not([data-processed])'));
     if (nodes.length === 0) return;
-    try { await m.run({ nodes }); } catch { /* ignore render errors */ }
+    try { await m.run({ nodes }); } catch {}
   }
 
-  function onMermaidReady(cb) {
-    if (window.__mermaid) { cb(); return; }
+  function onMermaidReady(cb: () => void) {
+    if ((window as any).__mermaid) { cb(); return; }
     document.addEventListener('mermaid:ready', cb, { once: true });
   }
 
-  // --- Tab switching ---
-  function activateTab(name) {
-    document.querySelectorAll('[data-tab-content]').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('[data-tab-btn]').forEach(el => el.classList.remove('tab-active'));
-
-    const content = document.querySelector(`[data-tab-content="${name}"]`);
-    const btn = document.querySelector(`[data-tab-btn="${name}"]`);
-
-    if (content) {
-      content.classList.remove('hidden');
-      onMermaidReady(() => renderMermaidIn(content));
+  // --- Panel switching (syncs sidebar + tab pills + hash) ---
+  function activatePanel(id: string) {
+    document.querySelectorAll<HTMLElement>('.doc-panel').forEach(el => el.classList.add('hidden'));
+    const panel = document.querySelector<HTMLElement>(`[data-panel="${id}"]`);
+    if (panel) {
+      panel.classList.remove('hidden');
+      onMermaidReady(() => renderMermaidIn(panel));
     }
-    if (btn) btn.classList.add('tab-active');
-    history.replaceState(null, '', `#${name}`);
+    document.querySelectorAll<HTMLElement>('.sidebar-btn').forEach(btn => btn.classList.remove('sidebar-active'));
+    document.querySelector<HTMLElement>(`[data-doc="${id}"]`)?.classList.add('sidebar-active');
+    document.querySelectorAll<HTMLElement>('.tab-pill').forEach(btn => btn.classList.remove('tab-pill-active'));
+    document.querySelector<HTMLElement>(`[data-tab="${id}"]`)?.classList.add('tab-pill-active');
+    history.replaceState(null, '', `#${id}`);
   }
 
-  // --- Doc sub-navigation ---
-  function activateDoc(id) {
-    document.querySelectorAll('[data-doc-content]').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('[data-doc-btn]').forEach(el => el.classList.remove('doc-nav-active'));
-
-    const content = document.querySelector(`[data-doc-content="${id}"]`);
-    const btn = document.querySelector(`[data-doc-btn="${id}"]`);
-
-    if (content) {
-      content.classList.remove('hidden');
-      onMermaidReady(() => renderMermaidIn(content));
-    }
-    if (btn) btn.classList.add('doc-nav-active');
-  }
-
-  // --- Wire events ---
-  document.querySelectorAll('[data-tab-btn]').forEach(btn => {
-    btn.addEventListener('click', () => activateTab(btn.dataset.tabBtn));
+  document.querySelectorAll<HTMLButtonElement>('.sidebar-btn').forEach(btn => {
+    btn.addEventListener('click', () => activatePanel(btn.dataset.doc!));
   });
-  document.querySelectorAll('[data-doc-btn]').forEach(btn => {
-    btn.addEventListener('click', () => activateDoc(btn.dataset.docBtn));
+  document.querySelectorAll<HTMLButtonElement>('.tab-pill').forEach(btn => {
+    btn.addEventListener('click', () => activatePanel(btn.dataset.tab!));
   });
 
-  // --- Init ---
   convertMermaidBlocks();
 
-  const initialTab = window.location.hash.replace('#', '') || 'docs';
-  activateTab(initialTab);
+  const hash = window.location.hash.replace('#', '');
+  const firstDocBtn = document.querySelector<HTMLButtonElement>('.sidebar-btn');
+  const initialId = hash || firstDocBtn?.dataset.doc || '__changelog';
+  activatePanel(initialId);
 
-  // Render mermaid in the active doc on first load
   onMermaidReady(() => {
-    const activeDoc = document.querySelector('[data-doc-content]:not(.hidden)');
-    if (activeDoc) renderMermaidIn(activeDoc);
+    const activePanel = document.querySelector<HTMLElement>('.doc-panel:not(.hidden)');
+    if (activePanel) renderMermaidIn(activePanel);
   });
-
-  // --- Live status ---
-  const statusEl = document.getElementById('live-status');
-  if (statusEl) {
-    const endpoint = statusEl.dataset.endpoint;
-    const dot = document.getElementById('status-dot');
-    const text = document.getElementById('status-text');
-    const start = Date.now();
-
-    fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(5000) })
-      .then(async res => {
-        const latency = Date.now() - start;
-        const data = await res.json().catch(() => ({}));
-        dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
-        text.textContent = `online · ${latency}ms${data.version ? ` · v${data.version}` : ''}`;
-        text.className = 'text-emerald-400';
-      })
-      .catch(() => {
-        dot.className = 'w-2 h-2 rounded-full bg-red-500';
-        text.textContent = 'offline';
-        text.className = 'text-red-400';
-      });
-  }
 </script>

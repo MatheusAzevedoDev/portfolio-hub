@@ -1,18 +1,17 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import ProjectCard from '../components/ProjectCard.astro';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { SITE_CONFIG } from '../config';
 
 type Project = {
   name: string;
   display_name?: string;
   description?: string;
   version?: string;
-  runtime?: string;
   tags?: string[];
-  api_endpoint?: string;
-  region?: string;
+  repo_url?: string;
+  status?: string;
   docs_updated_at?: string;
   changelog_updated_at?: string;
 };
@@ -23,45 +22,516 @@ try {
   const files = readdirSync(dir).filter(f => f.endsWith('.json'));
   projects = files
     .map(f => JSON.parse(readFileSync(join(dir, f), 'utf-8')) as Project)
-    .sort((a, b) => {
-      const da = new Date(b.changelog_updated_at || 0).getTime();
-      const db = new Date(a.changelog_updated_at || 0).getTime();
-      return da - db;
-    });
-} catch {
-  // No projects directory yet
+    .sort((a, b) => new Date(b.changelog_updated_at || 0).getTime() - new Date(a.changelog_updated_at || 0).getTime());
+} catch {}
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+function relativeTime(iso: string | undefined): string {
+  if (!iso) return '';
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days === 0) return 'hoje';
+  if (days === 1) return 'ontem';
+  if (days < 7) return `${days} dias atrás`;
+  if (days < 30) return `${Math.floor(days / 7)} sem. atrás`;
+  if (days < 365) return `${Math.floor(days / 30)} ${Math.floor(days / 30) > 1 ? 'meses' : 'mês'} atrás`;
+  return `${Math.floor(days / 365)} ano${Math.floor(days / 365) > 1 ? 's' : ''} atrás`;
 }
 ---
 
-<Layout title="Portfolio GitOps">
-  <main class="max-w-6xl mx-auto px-4 py-16">
+<Layout title={SITE_CONFIG.siteName}>
 
-    <div class="mb-14">
-      <p class="text-xs font-mono text-indigo-400 uppercase tracking-widest mb-3">
-        GitOps · AWS Lambda · GitHub Actions
+  <!-- ── NAV ─────────────────────────────────────────────── -->
+  <nav id="main-nav">
+    <div class="nav-inner">
+      <a href={`${base}/`} class="nav-logo">
+        <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+          <path d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z" stroke="var(--accent)" stroke-width="2"/>
+          <path d="M15 32 L15 17 L24 27 L33 17 L33 32" stroke="#f0f0fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24" cy="36" r="2" fill="var(--accent)"/>
+        </svg>
+        <div>
+          <div class="logo-name">matheus</div>
+          <div class="logo-sub">azevedo</div>
+        </div>
+      </a>
+      <div class="nav-links">
+        <a href="#projects" class="nav-link">Projetos</a>
+        <a href="#about" class="nav-link">Sobre</a>
+        <a href={`https://github.com/${SITE_CONFIG.githubUser}`} target="_blank" rel="noopener" class="nav-cta">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width:13px;height:13px;"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── HERO ────────────────────────────────────────────── -->
+  <section id="hero">
+    <div class="hero-inner">
+      <div class="hero-overline">
+        <div class="overline-bar"></div>
+        <span>Engenheiro de Software</span>
+      </div>
+      <h1 class="hero-h1">
+        Matheus<br/>
+        <span class="hero-accent">Azevedo</span>
+      </h1>
+      <p class="hero-sub">
+        Construo sistemas que funcionam em produção — não só no README. Cada projeto tem documentação real, GitOps, e releases rastreáveis.
       </p>
-      <h1 class="text-4xl font-bold tracking-tight text-slate-100 mb-4">Portfolio</h1>
-      <p class="text-slate-400 max-w-2xl text-lg leading-relaxed">
-        Projetos serverless com deploy automatizado. Documentação contínua e releases versionadas —
-        cada projeto tem sua própria Lambda na AWS.
-      </p>
+      <div class="hero-ctas">
+        <a href="#projects" class="cta-primary">
+          Ver projetos
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <a href="#about" class="cta-secondary">Sobre mim</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <div class="stat-num">{projects.length || '—'}</div>
+          <div class="stat-label">Projetos</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">—</div>
+          <div class="stat-label">Releases</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">3+</div>
+          <div class="stat-label">Anos</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PROJECTS ─────────────────────────────────────────── -->
+  <section id="projects" class="section-projects">
+    <div class="section-header">
+      <div>
+        <div class="section-overline">Projetos</div>
+        <h2 class="section-h2">O que eu construí</h2>
+      </div>
+      <div class="filter-pills" id="filter-pills">
+        <button class="pill pill-active" data-filter="all">Todos</button>
+        <button class="pill" data-filter="active">Active</button>
+        <button class="pill" data-filter="wip">WIP</button>
+        <button class="pill" data-filter="archived">Arquivados</button>
+      </div>
     </div>
 
     {projects.length > 0 ? (
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {projects.map(project => (
-          <ProjectCard project={project} />
-        ))}
+      <div class="projects-grid" id="projects-grid">
+        {projects.map(project => {
+          const status = project.status || 'active';
+          const updated = relativeTime(project.changelog_updated_at || project.docs_updated_at);
+          return (
+            <a
+              href={`${base}/projects/${project.name}`}
+              class="pcard"
+              data-status={status}
+            >
+              <div class="pcard-top">
+                {status === 'active' ? (
+                  <span class="badge-active">
+                    <span class="badge-dot"></span>Active
+                  </span>
+                ) : status === 'wip' ? (
+                  <span class="badge-wip">WIP</span>
+                ) : (
+                  <span class="badge-archived">Arquivado</span>
+                )}
+                <span class="pcard-version">{project.version ? `v${project.version}` : '—'}</span>
+              </div>
+              <div class="pcard-name">{project.display_name || project.name}</div>
+              <p class="pcard-desc">{project.description || ''}</p>
+              <div class="pcard-tags">
+                {(project.tags ?? []).map((tag: string) => (
+                  <span class="tag">{tag}</span>
+                ))}
+              </div>
+              <div class="pcard-footer">
+                <span class="pcard-updated">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  {updated}
+                </span>
+                <span class="pcard-link">
+                  Ver docs
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </span>
+              </div>
+            </a>
+          );
+        })}
       </div>
     ) : (
-      <div class="border border-dashed border-slate-800 rounded-2xl py-24 text-center">
-        <div class="text-3xl mb-4 text-slate-700">⬡</div>
-        <p class="text-sm font-mono text-slate-600">Nenhum projeto ainda.</p>
-        <p class="text-xs text-slate-700 mt-2">
-          Adicione um arquivo em <code class="text-indigo-600">projects/meu-projeto.json</code>
-        </p>
+      <div class="empty-state">
+        <p class="empty-msg">Nenhum projeto ainda.</p>
+        <p class="empty-hint">Adicione um arquivo em <code>projects/meu-projeto.json</code></p>
       </div>
     )}
+  </section>
 
-  </main>
+  <!-- ── ABOUT ─────────────────────────────────────────────── -->
+  <section id="about" class="section-about">
+    <div class="about-grid">
+      <div class="about-text">
+        <div class="section-overline">Sobre</div>
+        <h2 class="about-h2">Feito com obsessão<br/>por detalhe</h2>
+        <p class="about-p">
+          Sou engenheiro de software focado em infraestrutura e automação. Acredito que um bom projeto não termina no commit — ele tem documentação real, releases rastreáveis e um pipeline que funciona enquanto você dorme.
+        </p>
+        <p class="about-p">
+          Este portfólio é ele mesmo um exemplo disso: cada projeto aqui tem documentação viva, changelog gerado por git tags, e deploy automático via GitHub Actions.
+        </p>
+        <a href={`https://github.com/${SITE_CONFIG.githubUser}`} target="_blank" rel="noopener" class="about-cta">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Entrar em contato
+        </a>
+      </div>
+      <div class="skills-grid">
+        {[
+          { cat: 'Backend', items: ['Go', 'Rust', 'TypeScript', 'Python'] },
+          { cat: 'Infra', items: ['Kubernetes', 'Terraform', 'Docker', 'AWS'] },
+          { cat: 'Data', items: ['PostgreSQL', 'Redis', 'ClickHouse', 'NATS'] },
+          { cat: 'Observability', items: ['Prometheus', 'Grafana', 'OpenTelemetry'] },
+        ].map(s => (
+          <div class="skill-card">
+            <div class="skill-cat">{s.cat}</div>
+            {s.items.map(i => (
+              <span class="skill-item">
+                <span class="skill-dot"></span>{i}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ────────────────────────────────────────────── -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+          <path d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z" stroke="var(--accent)" stroke-width="2"/>
+          <path d="M15 32 L15 17 L24 27 L33 17 L33 32" stroke="#f0f0fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24" cy="36" r="2" fill="var(--accent)"/>
+        </svg>
+        <span class="footer-copy">© 2026 Matheus Azevedo</span>
+      </div>
+      <div class="footer-links">
+        <a href={`https://github.com/${SITE_CONFIG.githubUser}`} target="_blank" rel="noopener" class="footer-link">GitHub</a>
+        <a href="#" class="footer-link">LinkedIn</a>
+        <a href="#" class="footer-link">Email</a>
+      </div>
+    </div>
+  </footer>
+
 </Layout>
+
+<style>
+  /* ── NAV ── */
+  #main-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 0 24px;
+    transition: all 300ms ease;
+    border-bottom: 1px solid transparent;
+  }
+  #main-nav.scrolled {
+    backdrop-filter: blur(16px);
+    background: rgba(8, 8, 15, 0.88);
+    border-bottom-color: var(--border);
+  }
+  .nav-inner {
+    max-width: 1100px; margin: 0 auto;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px; text-decoration: none;
+  }
+  .logo-name {
+    font-family: var(--font-display); font-weight: 800; font-size: 15px;
+    color: var(--fg-1); letter-spacing: -0.02em; line-height: 1.1;
+  }
+  .logo-sub {
+    font-size: 9px; color: var(--accent); letter-spacing: 0.1em;
+    font-weight: 600; text-transform: uppercase;
+  }
+  .nav-links {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .nav-link {
+    font-size: 13px; font-weight: 500; color: var(--fg-2);
+    padding: 6px 12px; border-radius: 6px;
+    transition: all 150ms;
+  }
+  .nav-link:hover { color: var(--fg-1); background: var(--bg-elevated); }
+  .nav-cta {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--accent); color: #fff;
+    padding: 7px 14px; border-radius: 7px;
+    font-size: 13px; font-weight: 600;
+    margin-left: 8px;
+    box-shadow: 0 0 20px oklch(65% 0.28 268 / 0.3);
+    transition: all 150ms;
+  }
+  .nav-cta:hover { background: var(--accent-bright); }
+
+  /* ── HERO ── */
+  #hero {
+    display: flex; align-items: center;
+    padding: 100px 24px 72px;
+    max-width: 1100px; margin: 0 auto;
+    min-height: min(680px, 90vh);
+  }
+  .hero-inner { max-width: 640px; }
+  .hero-overline {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+  }
+  .overline-bar { width: 24px; height: 1px; background: var(--accent); }
+  .hero-overline span {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .hero-h1 {
+    font-family: var(--font-display); font-weight: 800;
+    font-size: clamp(40px, 5.5vw, 72px);
+    line-height: 1.05; letter-spacing: -0.03em;
+    color: var(--fg-1); margin-bottom: 20px;
+  }
+  .hero-accent { color: var(--accent); }
+  .hero-sub {
+    font-size: clamp(15px, 1.6vw, 18px); color: var(--fg-2);
+    line-height: 1.65; max-width: 480px; margin-bottom: 36px;
+  }
+  .hero-ctas { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .cta-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #fff;
+    padding: 11px 22px; border-radius: 8px;
+    font-size: 14px; font-weight: 600;
+    box-shadow: 0 0 28px oklch(65% 0.28 268 / 0.3);
+    transition: all 150ms;
+  }
+  .cta-primary:hover { background: var(--accent-bright); }
+  .cta-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: transparent; color: var(--fg-2);
+    padding: 11px 22px; border-radius: 8px;
+    font-size: 14px; font-weight: 500;
+    border: 1px solid var(--border-bright);
+    transition: all 150ms;
+  }
+  .cta-secondary:hover { color: var(--fg-1); border-color: #4a4a70; }
+  .hero-stats {
+    display: flex; gap: 28px; flex-wrap: wrap;
+    margin-top: 48px; padding-top: 28px;
+    border-top: 1px solid var(--border);
+  }
+  .stat-num {
+    font-family: var(--font-display); font-weight: 800;
+    font-size: 28px; color: var(--fg-1); line-height: 1;
+  }
+  .stat-label {
+    font-size: 11px; color: var(--fg-3); margin-top: 4px;
+    font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase;
+  }
+
+  /* ── PROJECTS ── */
+  .section-projects {
+    padding: 80px 24px; max-width: 1100px; margin: 0 auto;
+  }
+  .section-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 40px; flex-wrap: wrap; gap: 16px;
+  }
+  .section-overline {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 8px;
+  }
+  .section-h2 {
+    font-family: var(--font-display); font-weight: 800;
+    font-size: clamp(28px, 4vw, 42px);
+    color: var(--fg-1); letter-spacing: -0.03em; line-height: 1.1;
+  }
+  .filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    background: var(--bg-surface); color: var(--fg-2);
+    border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 9999px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: all 150ms; font-family: var(--font-body);
+  }
+  .pill-active {
+    background: oklch(65% 0.28 268 / 0.15);
+    color: var(--accent);
+    border-color: oklch(65% 0.28 268 / 0.4);
+  }
+  .projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .pcard {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 22px 24px;
+    text-decoration: none; cursor: pointer;
+    transition: all 200ms ease;
+    display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  .pcard:hover {
+    border-color: var(--border-bright);
+    box-shadow: 0 4px 32px rgba(0,0,0,0.5), 0 0 0 1px var(--border-bright);
+    transform: translateY(-2px);
+  }
+  .pcard:hover .pcard-link { color: var(--accent); }
+  .pcard-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .badge-active {
+    background: oklch(68% 0.2 155 / 0.12); color: var(--success);
+    border: 1px solid oklch(68% 0.2 155 / 0.25);
+    border-radius: 6px; padding: 3px 10px;
+    font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .badge-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; display: inline-block;
+  }
+  .badge-wip {
+    background: oklch(75% 0.18 70 / 0.12); color: var(--warn);
+    border: 1px solid oklch(75% 0.18 70 / 0.25);
+    border-radius: 6px; padding: 3px 10px;
+    font-size: 11px; font-weight: 600;
+  }
+  .badge-archived {
+    background: var(--bg-elevated); color: var(--fg-3);
+    border: 1px solid var(--border-bright);
+    border-radius: 6px; padding: 3px 10px;
+    font-size: 11px; font-weight: 600;
+  }
+  .pcard-version {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--fg-3); font-weight: 500;
+  }
+  .pcard-name {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 17px; color: var(--fg-1); letter-spacing: -0.02em;
+  }
+  .pcard-desc {
+    font-size: 13px; color: var(--fg-2); line-height: 1.6; flex-grow: 1; margin: 0;
+  }
+  .pcard-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    background: var(--bg-elevated); border: 1px solid var(--border-bright);
+    color: var(--fg-2); padding: 2px 8px;
+    border-radius: 9999px; font-size: 11px;
+  }
+  .pcard-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 8px; border-top: 1px solid var(--border);
+  }
+  .pcard-updated {
+    font-size: 11px; color: var(--fg-4);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .pcard-link {
+    font-size: 12px; color: var(--fg-3);
+    display: flex; align-items: center; gap: 4px;
+    font-weight: 500; transition: color 150ms;
+  }
+  .empty-state {
+    border: 1px dashed var(--border); border-radius: 16px;
+    padding: 80px 24px; text-align: center;
+  }
+  .empty-msg { font-size: 13px; color: var(--fg-3); font-family: var(--font-mono); }
+  .empty-hint { font-size: 12px; color: var(--fg-4); margin-top: 8px; }
+  .empty-hint code { color: var(--accent); font-family: var(--font-mono); }
+
+  /* ── ABOUT ── */
+  .section-about {
+    padding: 80px 24px 120px; max-width: 1100px; margin: 0 auto;
+    border-top: 1px solid var(--border);
+  }
+  .about-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 64px; align-items: center;
+  }
+  @media (max-width: 768px) {
+    .about-grid { grid-template-columns: 1fr; }
+  }
+  .about-h2 {
+    font-family: var(--font-display); font-weight: 800;
+    font-size: clamp(28px, 3.5vw, 40px);
+    color: var(--fg-1); letter-spacing: -0.03em; line-height: 1.1;
+    margin-bottom: 24px; margin-top: 12px;
+  }
+  .about-p { font-size: 15px; color: var(--fg-2); line-height: 1.7; margin-bottom: 16px; }
+  .about-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--accent); font-weight: 600; font-size: 14px;
+    border: 1px solid oklch(65% 0.28 268 / 0.4);
+    padding: 10px 20px; border-radius: 8px; transition: all 150ms;
+  }
+  .about-cta:hover { background: oklch(65% 0.28 268 / 0.08); }
+  .skills-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .skill-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .skill-cat {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
+  }
+  .skill-item {
+    font-size: 13px; color: var(--fg-2);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .skill-dot {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--border-bright); display: inline-block; flex-shrink: 0;
+  }
+
+  /* ── FOOTER ── */
+  .site-footer { border-top: 1px solid var(--border); padding: 0 24px; }
+  .footer-inner {
+    max-width: 1100px; margin: 0 auto; padding: 32px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px;
+  }
+  .footer-brand { display: flex; align-items: center; gap: 10px; }
+  .footer-copy { font-size: 13px; color: var(--fg-3); }
+  .footer-links { display: flex; gap: 20px; }
+  .footer-link { font-size: 13px; color: var(--fg-3); transition: color 150ms; }
+  .footer-link:hover { color: var(--fg-1); }
+</style>
+
+<script>
+  // Nav scroll effect
+  const nav = document.getElementById('main-nav');
+  window.addEventListener('scroll', () => {
+    nav?.classList.toggle('scrolled', window.scrollY > 20);
+  }, { passive: true });
+
+  // Project filter
+  const pills = document.querySelectorAll<HTMLButtonElement>('.pill');
+  const cards = document.querySelectorAll<HTMLElement>('.pcard');
+
+  pills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      pills.forEach(p => p.classList.remove('pill-active'));
+      pill.classList.add('pill-active');
+      const filter = pill.dataset.filter;
+      cards.forEach(card => {
+        const show = filter === 'all' || card.dataset.status === filter;
+        card.style.display = show ? 'flex' : 'none';
+      });
+    });
+  });
+</script>
