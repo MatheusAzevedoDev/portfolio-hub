@@ -3,14 +3,13 @@ import Layout from '../../layouts/Layout.astro';
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { marked } from 'marked';
-import { SITE_CONFIG } from '../../config';
 
 export function getStaticPaths() {
   try {
     const dir = join(process.cwd(), 'projects');
     return readdirSync(dir)
-      .filter(f => f.endsWith('.json'))
-      .map(f => ({ params: { slug: f.replace('.json', '') } }));
+      .filter((f: string) => f.endsWith('.json'))
+      .map((f: string) => ({ params: { slug: f.replace('.json', '') } }));
   } catch { return []; }
 }
 
@@ -129,24 +128,24 @@ function toLabel(filename: string, frontmatterTitle?: string): string {
   const id = filename.replace(/^\d+-/, '');
   if (DOC_LABELS[id]) return DOC_LABELS[id];
   if (ALL_CAPS.has(id.toLowerCase())) return id.toUpperCase();
-  return id.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return id.replace(/[-_]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
 }
 
 let docs: DocFile[] = [];
 const docsDir = join(process.cwd(), 'docs', slug);
 if (existsSync(docsDir)) {
   const files = readdirSync(docsDir)
-    .filter(f => f.endsWith('.md'))
-    .sort((a, b) => {
-      const [aBase, bBase] = [a, b].map(f => f.replace('.md', ''));
-      const [aNum, bNum] = [aBase, bBase].map(s => parseInt(s.match(/^(\d+)/)?.[1] ?? ''));
+    .filter((f: string) => f.endsWith('.md'))
+    .sort((a: string, b: string) => {
+      const [aBase, bBase] = [a, b].map((f: string) => f.replace('.md', ''));
+      const [aNum, bNum] = [aBase, bBase].map((s: string) => parseInt(s.match(/^(\d+)/)?.[1] ?? ''));
       if (!isNaN(aNum) || !isNaN(bNum)) return (isNaN(aNum) ? 999 : aNum) - (isNaN(bNum) ? 999 : bNum);
-      const [aOrd, bOrd] = [aBase, bBase].map(s => DOC_ORDER.indexOf(s));
+      const [aOrd, bOrd] = [aBase, bBase].map((s: string) => DOC_ORDER.indexOf(s));
       if (aOrd !== bOrd) return (aOrd === -1 ? 999 : aOrd) - (bOrd === -1 ? 999 : bOrd);
       return aBase.localeCompare(bBase);
     });
 
-  docs = files.map(f => {
+  docs = files.map((f: string) => {
     const id = f.replace('.md', '');
     const raw = readFileSync(join(docsDir, f), 'utf-8');
     const { icon, title, stripped } = parseFrontmatter(raw);

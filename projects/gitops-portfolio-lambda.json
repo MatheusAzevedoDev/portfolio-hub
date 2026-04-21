@@ -3,6 +3,7 @@
   "display_name": "GitOps Portfolio Hub",
   "description": "Portfolio GitOps com documentação contínua e changelogs versionados. Dois fluxos independentes via GitHub Actions.",
   "version": "1.0.0",
+  "status": "active",
   "tags": ["gitops", "github-actions", "astro", "github-pages"],
   "repo_url": "https://github.com/uMatheusx/portfolio-hub",
   "docs_updated_at": "2026-04-21T00:00:00Z",

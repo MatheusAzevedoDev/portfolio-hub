@@ -19,10 +19,10 @@ type Project = {
 let projects: Project[] = [];
 try {
   const dir = join(process.cwd(), 'projects');
-  const files = readdirSync(dir).filter(f => f.endsWith('.json'));
+  const files = readdirSync(dir).filter((f: string) => f.endsWith('.json'));
   projects = files
-    .map(f => JSON.parse(readFileSync(join(dir, f), 'utf-8')) as Project)
-    .sort((a, b) => new Date(b.changelog_updated_at || 0).getTime() - new Date(a.changelog_updated_at || 0).getTime());
+    .map((f: string) => JSON.parse(readFileSync(join(dir, f), 'utf-8')) as Project)
+    .sort((a: Project, b: Project) => new Date(b.changelog_updated_at || 0).getTime() - new Date(a.changelog_updated_at || 0).getTime());
 } catch {}
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -295,9 +295,9 @@ function relativeTime(iso: string | undefined): string {
     text-transform: uppercase; color: var(--accent);
   }
   .hero-h1 {
-    font-family: var(--font-display); font-weight: 800;
-    font-size: clamp(40px, 5.5vw, 72px);
-    line-height: 1.05; letter-spacing: -0.03em;
+    font-family: var(--font-body); font-weight: 600;
+    font-size: clamp(38px, 5vw, 68px);
+    line-height: 1.08; letter-spacing: -0.02em;
     color: var(--fg-1); margin-bottom: 20px;
   }
   .hero-accent { color: var(--accent); }
@@ -351,9 +351,9 @@ function relativeTime(iso: string | undefined): string {
     text-transform: uppercase; color: var(--accent); margin-bottom: 8px;
   }
   .section-h2 {
-    font-family: var(--font-display); font-weight: 800;
-    font-size: clamp(28px, 4vw, 42px);
-    color: var(--fg-1); letter-spacing: -0.03em; line-height: 1.1;
+    font-family: var(--font-body); font-weight: 600;
+    font-size: clamp(26px, 3.4vw, 36px);
+    color: var(--fg-1); letter-spacing: -0.02em; line-height: 1.15;
   }
   .filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
   .pill {
@@ -418,8 +418,8 @@ function relativeTime(iso: string | undefined): string {
     color: var(--fg-3); font-weight: 500;
   }
   .pcard-name {
-    font-family: var(--font-display); font-weight: 700;
-    font-size: 17px; color: var(--fg-1); letter-spacing: -0.02em;
+    font-family: var(--font-body); font-weight: 600;
+    font-size: 17px; color: var(--fg-1); letter-spacing: -0.01em;
   }
   .pcard-desc {
     font-size: 13px; color: var(--fg-2); line-height: 1.6; flex-grow: 1; margin: 0;
@@ -464,9 +464,9 @@ function relativeTime(iso: string | undefined): string {
     .about-grid { grid-template-columns: 1fr; }
   }
   .about-h2 {
-    font-family: var(--font-display); font-weight: 800;
-    font-size: clamp(28px, 3.5vw, 40px);
-    color: var(--fg-1); letter-spacing: -0.03em; line-height: 1.1;
+    font-family: var(--font-body); font-weight: 600;
+    font-size: clamp(26px, 3.2vw, 36px);
+    color: var(--fg-1); letter-spacing: -0.02em; line-height: 1.18;
     margin-bottom: 24px; margin-top: 12px;
   }
   .about-p { font-size: 15px; color: var(--fg-2); line-height: 1.7; margin-bottom: 16px; }
