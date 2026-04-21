@@ -1,0 +1,51 @@
+name: Receive Docs Update
+
+on:
+  repository_dispatch:
+    types: [update-docs]
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch docs from project repo
+        run: |
+          PROJECT="${{ github.event.client_payload.project }}"
+          REPO="${{ github.event.client_payload.repo_url }}"
+          OWNER_REPO="${REPO#https://github.com/}"
+          SHA="${{ github.event.client_payload.commit_sha }}"
+
+          mkdir -p docs/${PROJECT}
+
+          FILES=$(curl -sf \
+            -H "Authorization: token ${{ secrets.PORTFOLIO_TOKEN }}" \
+            "https://api.github.com/repos/${OWNER_REPO}/contents/docs?ref=${SHA}" \
+            | jq -r '.[].name')
+
+          for FILE in $FILES; do
+            curl -sf \
+              -H "Authorization: token ${{ secrets.PORTFOLIO_TOKEN }}" \
+              "https://raw.githubusercontent.com/${OWNER_REPO}/${SHA}/docs/${FILE}" \
+              > "docs/${PROJECT}/${FILE}"
+          done
+
+      - name: Update docs_updated_at in project JSON
+        run: |
+          PROJECT="${{ github.event.client_payload.project }}"
+          TIMESTAMP="${{ github.event.client_payload.updated_at }}"
+          JSON_FILE="projects/${PROJECT}.json"
+
+          if [ -f "$JSON_FILE" ]; then
+            jq --arg ts "$TIMESTAMP" '.docs_updated_at = $ts' "$JSON_FILE" > /tmp/updated.json
+            mv /tmp/updated.json "$JSON_FILE"
+          fi
+
+      - name: Commit and push
+        run: |
+          git config user.name "portfolio-bot[bot]"
+          git config user.email "portfolio-bot@users.noreply.github.com"
+          git add docs/ projects/
+          git diff --staged --quiet || git commit -m "docs(${{ github.event.client_payload.project }}): update documentation"
+          git push

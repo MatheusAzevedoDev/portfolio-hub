@@ -1,0 +1,13 @@
+{
+  "name": "gitops-portfolio-lambda",
+  "display_name": "GitOps Portfolio Lambda",
+  "description": "Portfolio GitOps totalmente automatizado com dois fluxos independentes: documentação contínua e releases versionadas. AWS Lambda, API Gateway, GitHub Actions e Astro.",
+  "version": "1.0.0",
+  "runtime": "nodejs",
+  "tags": ["gitops", "aws", "lambda", "github-actions", "astro"],
+  "api_endpoint": "",
+  "repo_url": "https://github.com/seu-usuario/gitops-portfolio-lambda",
+  "region": "sa-east-1",
+  "docs_updated_at": "2026-04-21T00:00:00Z",
+  "changelog_updated_at": "2026-04-21T00:00:00Z"
+}

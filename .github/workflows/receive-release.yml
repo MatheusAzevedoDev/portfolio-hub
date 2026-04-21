@@ -1,0 +1,65 @@
+name: Receive Release
+
+on:
+  repository_dispatch:
+    types: [new-release]
+
+jobs:
+  update-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update project metadata
+        run: |
+          PROJECT="${{ github.event.client_payload.project }}"
+          JSON_FILE="projects/${PROJECT}.json"
+
+          # Preserve docs_updated_at if already set
+          DOCS_TS=""
+          if [ -f "$JSON_FILE" ]; then
+            DOCS_TS=$(jq -r '.docs_updated_at // ""' "$JSON_FILE")
+          fi
+
+          cat > "$JSON_FILE" << EOF
+          {
+            "name": "${PROJECT}",
+            "display_name": "${{ github.event.client_payload.display_name }}",
+            "description": "${{ github.event.client_payload.description }}",
+            "version": "${{ github.event.client_payload.version }}",
+            "runtime": "${{ github.event.client_payload.runtime }}",
+            "tags": ${{ toJson(github.event.client_payload.tags) || '[]' }},
+            "api_endpoint": "${{ github.event.client_payload.api_endpoint }}",
+            "repo_url": "${{ github.event.client_payload.repo_url }}",
+            "region": "${{ github.event.client_payload.region || 'sa-east-1' }}",
+            "docs_updated_at": "${DOCS_TS}",
+            "changelog_updated_at": "${{ github.event.client_payload.updated_at }}"
+          }
+          EOF
+
+      - name: Fetch CHANGELOG.md from project repo
+        run: |
+          PROJECT="${{ github.event.client_payload.project }}"
+          REPO_URL="${{ github.event.client_payload.repo_url }}"
+          OWNER_REPO="${REPO_URL#https://github.com/}"
+
+          mkdir -p changelogs
+
+          # Try CHANGELOG.md first, fall back to GitHub release body
+          curl -sf \
+            -H "Authorization: token ${{ secrets.PORTFOLIO_TOKEN }}" \
+            "https://raw.githubusercontent.com/${OWNER_REPO}/main/CHANGELOG.md" \
+            > "changelogs/${PROJECT}.md" || \
+          curl -sf \
+            -H "Authorization: token ${{ secrets.PORTFOLIO_TOKEN }}" \
+            "https://api.github.com/repos/${OWNER_REPO}/releases/latest" \
+            | jq -r '"## [" + .tag_name + "] - " + (.published_at | split("T")[0]) + "\n\n" + (.body // "Sem notas de release.")' \
+            > "changelogs/${PROJECT}.md"
+
+      - name: Commit and push
+        run: |
+          git config user.name "portfolio-bot[bot]"
+          git config user.email "portfolio-bot@users.noreply.github.com"
+          git add projects/ changelogs/
+          git diff --staged --quiet || git commit -m "release(${{ github.event.client_payload.project }}): ${{ github.event.client_payload.version }}"
+          git push

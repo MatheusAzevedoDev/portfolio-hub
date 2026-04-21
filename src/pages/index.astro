@@ -1,0 +1,67 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
+
+type Project = {
+  name: string;
+  display_name?: string;
+  description?: string;
+  version?: string;
+  runtime?: string;
+  tags?: string[];
+  api_endpoint?: string;
+  region?: string;
+  docs_updated_at?: string;
+  changelog_updated_at?: string;
+};
+
+let projects: Project[] = [];
+try {
+  const dir = join(process.cwd(), 'projects');
+  const files = readdirSync(dir).filter(f => f.endsWith('.json'));
+  projects = files
+    .map(f => JSON.parse(readFileSync(join(dir, f), 'utf-8')) as Project)
+    .sort((a, b) => {
+      const da = new Date(b.changelog_updated_at || 0).getTime();
+      const db = new Date(a.changelog_updated_at || 0).getTime();
+      return da - db;
+    });
+} catch {
+  // No projects directory yet
+}
+---
+
+<Layout title="Portfolio GitOps">
+  <main class="max-w-6xl mx-auto px-4 py-16">
+
+    <div class="mb-14">
+      <p class="text-xs font-mono text-indigo-400 uppercase tracking-widest mb-3">
+        GitOps · AWS Lambda · GitHub Actions
+      </p>
+      <h1 class="text-4xl font-bold tracking-tight text-slate-100 mb-4">Portfolio</h1>
+      <p class="text-slate-400 max-w-2xl text-lg leading-relaxed">
+        Projetos serverless com deploy automatizado. Documentação contínua e releases versionadas —
+        cada projeto tem sua própria Lambda na AWS.
+      </p>
+    </div>
+
+    {projects.length > 0 ? (
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {projects.map(project => (
+          <ProjectCard project={project} />
+        ))}
+      </div>
+    ) : (
+      <div class="border border-dashed border-slate-800 rounded-2xl py-24 text-center">
+        <div class="text-3xl mb-4 text-slate-700">⬡</div>
+        <p class="text-sm font-mono text-slate-600">Nenhum projeto ainda.</p>
+        <p class="text-xs text-slate-700 mt-2">
+          Adicione um arquivo em <code class="text-indigo-600">projects/meu-projeto.json</code>
+        </p>
+      </div>
+    )}
+
+  </main>
+</Layout>

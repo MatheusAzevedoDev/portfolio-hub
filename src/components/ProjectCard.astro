@@ -1,0 +1,78 @@
+---
+export interface Props {
+  project: {
+    name: string;
+    display_name?: string;
+    description?: string;
+    version?: string;
+    runtime?: string;
+    tags?: string[];
+    api_endpoint?: string;
+    region?: string;
+  };
+}
+
+const { project } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+const RUNTIME_STYLES: Record<string, string> = {
+  python:  'text-blue-400 bg-blue-950/60 border-blue-900/60',
+  nodejs:  'text-green-400 bg-green-950/60 border-green-900/60',
+  node:    'text-green-400 bg-green-950/60 border-green-900/60',
+  go:      'text-cyan-400 bg-cyan-950/60 border-cyan-900/60',
+  rust:    'text-orange-400 bg-orange-950/60 border-orange-900/60',
+  java:    'text-yellow-400 bg-yellow-950/60 border-yellow-900/60',
+};
+
+function runtimeStyle(rt: string | undefined): string {
+  if (!rt) return 'text-slate-400 bg-slate-800/60 border-slate-700/60';
+  const key = Object.keys(RUNTIME_STYLES).find(k => rt.toLowerCase().includes(k));
+  return key ? RUNTIME_STYLES[key] : 'text-slate-400 bg-slate-800/60 border-slate-700/60';
+}
+---
+
+<a
+  href={`${base}/projects/${project.name}`}
+  class="group block bg-slate-900 border border-slate-800 rounded-xl p-6
+         hover:border-indigo-800/70 hover:bg-slate-900/60
+         transition-all duration-200"
+>
+  <div class="flex items-start justify-between mb-4">
+    <div class="flex-1 min-w-0 pr-3">
+      <h2 class="font-semibold text-slate-100 group-hover:text-indigo-300 transition-colors leading-tight">
+        {project.display_name || project.name}
+      </h2>
+      <p class="text-xs text-slate-600 mt-0.5 font-mono truncate">{project.name}</p>
+    </div>
+    <div class="flex items-center gap-1.5 flex-shrink-0">
+      {project.api_endpoint && (
+        <span class="w-2 h-2 rounded-full bg-emerald-500/80 flex-shrink-0" title="Endpoint configurado" />
+      )}
+      <span class="text-xs font-mono text-slate-500">
+        v{project.version || '0.0.0'}
+      </span>
+    </div>
+  </div>
+
+  <p class="text-sm text-slate-500 mb-5 line-clamp-2 leading-relaxed">
+    {project.description || 'Sem descrição.'}
+  </p>
+
+  <div class="flex flex-wrap gap-1.5">
+    {project.runtime && (
+      <span class={`text-xs font-mono px-2 py-0.5 rounded-md border ${runtimeStyle(project.runtime)}`}>
+        {project.runtime}
+      </span>
+    )}
+    {project.region && (
+      <span class="text-xs font-mono px-2 py-0.5 rounded-md border text-slate-600 bg-slate-800/40 border-slate-700/60">
+        {project.region}
+      </span>
+    )}
+    {(project.tags ?? []).slice(0, 2).map((tag: string) => (
+      <span class="text-xs px-2 py-0.5 rounded-md border text-slate-600 bg-slate-800/30 border-slate-800">
+        #{tag}
+      </span>
+    ))}
+  </div>
+</a>

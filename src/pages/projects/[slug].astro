@@ -1,0 +1,435 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { readdirSync, readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import { marked } from 'marked';
+
+export function getStaticPaths() {
+  try {
+    const dir = join(process.cwd(), 'projects');
+    const files = readdirSync(dir).filter(f => f.endsWith('.json'));
+    return files.map(f => ({ params: { slug: f.replace('.json', '') } }));
+  } catch {
+    return [];
+  }
+}
+
+const { slug } = Astro.params as { slug: string };
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+type Project = {
+  name: string;
+  display_name?: string;
+  description?: string;
+  version?: string;
+  runtime?: string;
+  tags?: string[];
+  api_endpoint?: string;
+  repo_url?: string;
+  region?: string;
+  docs_updated_at?: string;
+  changelog_updated_at?: string;
+};
+
+const project: Project = JSON.parse(
+  readFileSync(join(process.cwd(), 'projects', `${slug}.json`), 'utf-8')
+);
+
+// --- Docs ---
+type DocFile = { id: string; label: string; html: string };
+
+const DOC_LABELS: Record<string, string> = {
+  README: 'Visão Geral',
+  architecture: 'Arquitetura',
+  usage: 'Como Usar',
+  api: 'API Reference',
+};
+
+const DOC_ORDER = ['README', 'architecture', 'usage', 'api'];
+
+let docs: DocFile[] = [];
+const docsDir = join(process.cwd(), 'docs', slug);
+if (existsSync(docsDir)) {
+  const files = readdirSync(docsDir)
+    .filter(f => f.endsWith('.md'))
+    .sort((a, b) => {
+      const ai = DOC_ORDER.indexOf(a.replace('.md', ''));
+      const bi = DOC_ORDER.indexOf(b.replace('.md', ''));
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    });
+
+  docs = files.map(f => {
+    const id = f.replace('.md', '');
+    const raw = readFileSync(join(docsDir, f), 'utf-8');
+    const label = DOC_LABELS[id] ?? (id.charAt(0).toUpperCase() + id.slice(1).replace(/[-_]/g, ' '));
+    return { id, label, html: String(marked.parse(raw)) };
+  });
+}
+
+// --- Changelog ---
+let changelogHtml = '';
+const changelogPath = join(process.cwd(), 'changelogs', `${slug}.md`);
+if (existsSync(changelogPath)) {
+  changelogHtml = String(marked.parse(readFileSync(changelogPath, 'utf-8')));
+}
+
+// --- Helpers ---
+const RUNTIME_STYLES: Record<string, string> = {
+  python: 'text-blue-400 bg-blue-950/60 border-blue-900/60',
+  nodejs: 'text-green-400 bg-green-950/60 border-green-900/60',
+  node:   'text-green-400 bg-green-950/60 border-green-900/60',
+  go:     'text-cyan-400 bg-cyan-950/60 border-cyan-900/60',
+  rust:   'text-orange-400 bg-orange-950/60 border-orange-900/60',
+};
+
+function runtimeStyle(rt: string | undefined): string {
+  if (!rt) return 'text-slate-400 bg-slate-800/60 border-slate-700/60';
+  const k = Object.keys(RUNTIME_STYLES).find(k => rt.toLowerCase().includes(k));
+  return k ? RUNTIME_STYLES[k] : 'text-slate-400 bg-slate-800/60 border-slate-700/60';
+}
+
+function fmtDate(iso: string | undefined): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+---
+
+<Layout title={`${project.display_name ?? slug} · Portfolio`}>
+
+  <!-- Back -->
+  <div class="max-w-6xl mx-auto px-4 pt-8">
+    <a href={`${base}/`} class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-200 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+      </svg>
+      Portfolio
+    </a>
+  </div>
+
+  <!-- Header -->
+  <header class="max-w-6xl mx-auto px-4 pt-6 pb-8 border-b border-slate-800/60">
+    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+      <div class="flex-1">
+        <h1 class="text-2xl font-bold text-slate-100 mb-1 leading-tight">
+          {project.display_name ?? slug}
+        </h1>
+        <p class="text-xs font-mono text-slate-600 mb-3">{slug}</p>
+        {project.description && (
+          <p class="text-slate-400 max-w-2xl leading-relaxed">{project.description}</p>
+        )}
+
+        <div class="flex flex-wrap gap-2 mt-4">
+          {project.runtime && (
+            <span class={`text-xs font-mono px-2.5 py-1 rounded-md border ${runtimeStyle(project.runtime)}`}>
+              {project.runtime}
+            </span>
+          )}
+          {project.region && (
+            <span class="text-xs font-mono px-2.5 py-1 rounded-md border text-slate-500 bg-slate-800/50 border-slate-700/60">
+              {project.region}
+            </span>
+          )}
+          {(project.tags ?? []).map((tag: string) => (
+            <span class="text-xs px-2.5 py-1 rounded-md border text-slate-600 bg-slate-800/30 border-slate-800">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div class="flex flex-col items-start sm:items-end gap-3 flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <span class="text-base font-mono font-medium text-slate-300">
+            v{project.version ?? '0.0.0'}
+          </span>
+          {project.api_endpoint && (
+            <div id="live-status" data-endpoint={project.api_endpoint}
+                 class="flex items-center gap-1.5 text-xs text-slate-600">
+              <span id="status-dot" class="w-2 h-2 rounded-full bg-slate-700 animate-pulse"></span>
+              <span id="status-text">verificando...</span>
+            </div>
+          )}
+        </div>
+
+        <div class="flex items-center gap-2">
+          {project.repo_url && (
+            <a
+              href={project.repo_url}
+              target="_blank"
+              rel="noopener"
+              class="text-xs text-slate-500 hover:text-slate-100 transition-colors flex items-center gap-1.5 border border-slate-800 rounded-lg px-3 py-1.5 hover:border-slate-600"
+            >
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              Repositório
+            </a>
+          )}
+          {project.api_endpoint && (
+            <a
+              href={`${project.api_endpoint}/health`}
+              target="_blank"
+              rel="noopener"
+              class="text-xs text-emerald-500 hover:text-emerald-300 transition-colors flex items-center gap-1.5 border border-emerald-900/60 rounded-lg px-3 py-1.5 bg-emerald-950/30 hover:bg-emerald-950/60"
+            >
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Demo ao vivo
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="flex border-b border-slate-800/60">
+      <button
+        data-tab-btn="docs"
+        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition-colors"
+      >
+        Documentation
+        {docs.length > 0 && (
+          <span class="ml-1.5 text-xs font-mono text-slate-700">{docs.length}</span>
+        )}
+      </button>
+      <button
+        data-tab-btn="changelog"
+        class="tab-btn px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition-colors"
+      >
+        Changelog
+        {project.version && (
+          <span class="ml-1.5 text-xs font-mono text-slate-700">{project.version}</span>
+        )}
+      </button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <main class="max-w-6xl mx-auto px-4 py-10">
+
+    <!-- DOCS TAB -->
+    <div data-tab-content="docs" class="hidden">
+      {docs.length > 0 ? (
+        <div class="flex flex-col md:flex-row gap-10">
+          <!-- Sidebar -->
+          <aside class="md:w-44 flex-shrink-0">
+            <nav class="sticky top-20 flex flex-row flex-wrap md:flex-col gap-1">
+              {docs.map((doc, i) => (
+                <button
+                  data-doc-btn={doc.id}
+                  class={`doc-nav-btn text-left px-3 py-2 rounded-lg text-sm transition-all text-slate-500 hover:text-slate-200 hover:bg-slate-800/70 ${i === 0 ? 'doc-nav-active' : ''}`}
+                >
+                  {doc.label}
+                </button>
+              ))}
+            </nav>
+          </aside>
+
+          <!-- Content -->
+          <div class="flex-1 min-w-0">
+            {docs.map((doc, i) => (
+              <div
+                data-doc-content={doc.id}
+                class={`prose prose-invert prose-slate max-w-none doc-content ${i !== 0 ? 'hidden' : ''}`}
+                set:html={doc.html}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div class="border border-dashed border-slate-800 rounded-2xl py-20 text-center">
+          <p class="text-sm font-mono text-slate-600">Sem documentação.</p>
+          <p class="text-xs text-slate-700 mt-2">
+            Adicione arquivos em <code class="text-indigo-700">docs/{slug}/</code>
+          </p>
+        </div>
+      )}
+    </div>
+
+    <!-- CHANGELOG TAB -->
+    <div data-tab-content="changelog" class="hidden">
+      {changelogHtml ? (
+        <div class="prose prose-invert prose-slate max-w-4xl changelog-content" set:html={changelogHtml} />
+      ) : (
+        <div class="border border-dashed border-slate-800 rounded-2xl py-20 text-center">
+          <p class="text-sm font-mono text-slate-600">Sem changelog.</p>
+          <p class="text-xs text-slate-700 mt-2">
+            Adicione <code class="text-indigo-700">changelogs/{slug}.md</code>
+          </p>
+        </div>
+      )}
+    </div>
+
+  </main>
+
+  <!-- Meta footer -->
+  {(project.docs_updated_at || project.changelog_updated_at) && (
+    <div class="max-w-6xl mx-auto px-4 pb-10 flex flex-wrap gap-5 text-xs font-mono text-slate-700 border-t border-slate-800/40 pt-5">
+      {project.docs_updated_at && (
+        <span>docs atualizado: {fmtDate(project.docs_updated_at)}</span>
+      )}
+      {project.changelog_updated_at && (
+        <span>release: {fmtDate(project.changelog_updated_at)}</span>
+      )}
+    </div>
+  )}
+
+</Layout>
+
+<style>
+  .tab-btn.tab-active {
+    @apply border-indigo-500 text-indigo-400;
+  }
+  .doc-nav-active {
+    @apply text-indigo-400 bg-slate-800/60 !important;
+  }
+
+  /* Prose overrides */
+  :global(.prose pre) {
+    @apply border border-slate-800/70 bg-slate-900 !important;
+  }
+  :global(.prose code:not(pre code)) {
+    @apply text-indigo-300 bg-indigo-950/40 px-1 py-0.5 rounded text-[0.85em] before:content-none after:content-none;
+  }
+  :global(.prose h1, .prose h2, .prose h3) {
+    @apply scroll-mt-20;
+  }
+  :global(.prose h2) {
+    @apply border-b border-slate-800/60 pb-2;
+  }
+  :global(.prose table) {
+    @apply border-collapse;
+  }
+  :global(.prose th) {
+    @apply bg-slate-900 text-slate-300;
+  }
+  :global(.prose tr:nth-child(even)) {
+    @apply bg-slate-900/40;
+  }
+  :global(.prose blockquote) {
+    @apply border-indigo-800 bg-indigo-950/20 rounded-r-lg;
+  }
+
+  /* Mermaid diagram containers */
+  :global(.mermaid) {
+    @apply bg-slate-900/60 rounded-xl p-6 border border-slate-800/70 overflow-x-auto my-6;
+    /* reset prose list/typography on mermaid containers */
+    font-size: initial;
+    line-height: initial;
+  }
+  :global(.mermaid svg) {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Changelog version entries */
+  :global(.changelog-content h2) {
+    @apply flex items-center gap-3;
+  }
+  :global(.changelog-content h2::before) {
+    content: 'v';
+    @apply text-indigo-500 font-mono text-sm;
+  }
+</style>
+
+<script>
+  // --- Mermaid helpers ---
+  function convertMermaidBlocks() {
+    document.querySelectorAll('code.language-mermaid').forEach(el => {
+      const pre = el.parentElement;
+      if (!pre) return;
+      const div = document.createElement('div');
+      div.className = 'mermaid not-prose';
+      div.textContent = el.textContent || '';
+      pre.replaceWith(div);
+    });
+  }
+
+  async function renderMermaidIn(container) {
+    const m = window.__mermaid;
+    if (!m) return;
+    const nodes = Array.from(container.querySelectorAll('.mermaid:not([data-processed])'));
+    if (nodes.length === 0) return;
+    try { await m.run({ nodes }); } catch { /* ignore render errors */ }
+  }
+
+  function onMermaidReady(cb) {
+    if (window.__mermaid) { cb(); return; }
+    document.addEventListener('mermaid:ready', cb, { once: true });
+  }
+
+  // --- Tab switching ---
+  function activateTab(name) {
+    document.querySelectorAll('[data-tab-content]').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[data-tab-btn]').forEach(el => el.classList.remove('tab-active'));
+
+    const content = document.querySelector(`[data-tab-content="${name}"]`);
+    const btn = document.querySelector(`[data-tab-btn="${name}"]`);
+
+    if (content) {
+      content.classList.remove('hidden');
+      onMermaidReady(() => renderMermaidIn(content));
+    }
+    if (btn) btn.classList.add('tab-active');
+    history.replaceState(null, '', `#${name}`);
+  }
+
+  // --- Doc sub-navigation ---
+  function activateDoc(id) {
+    document.querySelectorAll('[data-doc-content]').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[data-doc-btn]').forEach(el => el.classList.remove('doc-nav-active'));
+
+    const content = document.querySelector(`[data-doc-content="${id}"]`);
+    const btn = document.querySelector(`[data-doc-btn="${id}"]`);
+
+    if (content) {
+      content.classList.remove('hidden');
+      onMermaidReady(() => renderMermaidIn(content));
+    }
+    if (btn) btn.classList.add('doc-nav-active');
+  }
+
+  // --- Wire events ---
+  document.querySelectorAll('[data-tab-btn]').forEach(btn => {
+    btn.addEventListener('click', () => activateTab(btn.dataset.tabBtn));
+  });
+  document.querySelectorAll('[data-doc-btn]').forEach(btn => {
+    btn.addEventListener('click', () => activateDoc(btn.dataset.docBtn));
+  });
+
+  // --- Init ---
+  convertMermaidBlocks();
+
+  const initialTab = window.location.hash.replace('#', '') || 'docs';
+  activateTab(initialTab);
+
+  // Render mermaid in the active doc on first load
+  onMermaidReady(() => {
+    const activeDoc = document.querySelector('[data-doc-content]:not(.hidden)');
+    if (activeDoc) renderMermaidIn(activeDoc);
+  });
+
+  // --- Live status ---
+  const statusEl = document.getElementById('live-status');
+  if (statusEl) {
+    const endpoint = statusEl.dataset.endpoint;
+    const dot = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    const start = Date.now();
+
+    fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(5000) })
+      .then(async res => {
+        const latency = Date.now() - start;
+        const data = await res.json().catch(() => ({}));
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+        text.textContent = `online · ${latency}ms${data.version ? ` · v${data.version}` : ''}`;
+        text.className = 'text-emerald-400';
+      })
+      .catch(() => {
+        dot.className = 'w-2 h-2 rounded-full bg-red-500';
+        text.textContent = 'offline';
+        text.className = 'text-red-400';
+      });
+  }
+</script>
