@@ -1,5 +1,10 @@
+## 0.14.0 (2026-04-23)
+
+* feat: force deploy ([f1b1d83](https://github.com/MatheusAzevedoDev/projeto-teste/commit/f1b1d83))
+
 ## 0.13.0 (2026-04-23)
 
+* chore: release v0.13.0 [skip ci] ([7bd33c9](https://github.com/MatheusAzevedoDev/projeto-teste/commit/7bd33c9))
 * feat: ajuste doc ([253a6b1](https://github.com/MatheusAzevedoDev/projeto-teste/commit/253a6b1))
 * feat: foii ([3e53375](https://github.com/MatheusAzevedoDev/projeto-teste/commit/3e53375))
 * feat: novo workflow ([b1faf01](https://github.com/MatheusAzevedoDev/projeto-teste/commit/b1faf01))
