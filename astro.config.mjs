@@ -5,7 +5,7 @@ import tailwind from '@astrojs/tailwind';
 // site: 'https://YOUR_USERNAME.github.io'
 // base: '/portfolio-hub'
 export default defineConfig({
-  site: 'https://uMatheusx.github.io',
+  site: 'https://MatheusAzevedoDev.github.io',
   base: '/portfolio-hub',
   output: 'static',
   integrations: [tailwind()],
