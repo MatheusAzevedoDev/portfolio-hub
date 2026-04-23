@@ -1,5 +1,10 @@
+## 0.10.0 (2026-04-23)
+
+* feat: agora vaiiii ([35b31be](https://github.com/MatheusAzevedoDev/projeto-teste/commit/35b31be))
+
 ## 0.9.0 (2026-04-23)
 
+* chore: release v0.9.0 [skip ci] ([ae0fd2b](https://github.com/MatheusAzevedoDev/projeto-teste/commit/ae0fd2b))
 * feat: amem ([f991238](https://github.com/MatheusAzevedoDev/projeto-teste/commit/f991238))
 
 ## 0.8.0 (2026-04-23)
