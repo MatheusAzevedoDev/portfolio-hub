@@ -1,27 +1,46 @@
 # Setup Guide — Portfolio Hub
 
-Referência para configurar o site, adicionar posts no blog, e integrar novos projetos.
+Referência completa para configurar o site, publicar posts, integrar projetos e entender os fluxos de automação.
 
 ---
 
 ## Índice
 
-1. [Adicionando Posts no Blog](#adicionando-posts-no-blog)
-2. [Integrando um Novo Projeto](#integrando-um-novo-projeto)
-3. [Fluxo de desenvolvimento nos projetos](#fluxo-de-desenvolvimento-nos-projetos)
-4. [Conventional Commits](#conventional-commits)
-5. [Como o changelog e as releases funcionam](#como-o-changelog-e-as-releases-funcionam)
-6. [Templates de Configuração](#templates-de-configuração)
+1. [Configuração inicial do site](#1-configuração-inicial-do-site)
+2. [Adicionando posts no blog](#2-adicionando-posts-no-blog)
+3. [Integrando um novo projeto](#3-integrando-um-novo-projeto)
+4. [Fluxo de desenvolvimento nos projetos](#4-fluxo-de-desenvolvimento-nos-projetos)
+5. [Conventional Commits](#5-conventional-commits)
+6. [Como o changelog e as releases funcionam](#6-como-o-changelog-e-as-releases-funcionam)
+7. [Referência dos workflows do hub](#7-referência-dos-workflows-do-hub)
 
 ---
 
-## Adicionando Posts no Blog
+## 1. Configuração inicial do site
+
+Edite `src/config.ts`:
+
+```ts
+export const SITE_CONFIG = {
+  githubUser: 'seu-usuario',
+  linkedinUrl: 'https://linkedin.com/in/seu-perfil',
+  repoName: 'portfolio-hub',
+  siteName: 'Seu Nome',
+  siteDescription: 'Descrição do site para SEO',
+};
+```
+
+Esse arquivo alimenta a navbar (botões GitHub e LinkedIn), o título das páginas e os metadados de SEO.
+
+---
+
+## 2. Adicionando posts no blog
 
 Posts ficam em `content/blog/` como arquivos Markdown com frontmatter YAML.
 
 ### Criando um post
 
-Crie um arquivo em `content/blog/meu-post.md`. O nome do arquivo vira a URL: `/blog/meu-post`.
+Crie `content/blog/meu-post.md`. O nome do arquivo vira a URL: `/blog/meu-post`.
 
 ```markdown
 ---
@@ -42,22 +61,19 @@ Conteúdo do post em Markdown aqui.
 | `title` | sim | Título exibido na listagem e no post |
 | `description` | não | Subtítulo/resumo — aparece na listagem |
 | `date` | sim | Data no formato `YYYY-MM-DD` — define a ordenação |
-| `tags` | não | Array de tags, ex: `[Go, GitOps]` — ativa o filtro |
-| `featured` | não | `true` exibe o post como destaque no topo da listagem |
+| `tags` | não | Array de tags — ativa o filtro na listagem |
+| `featured` | não | `true` exibe o post como destaque no topo |
 
 > Apenas um post deve ter `featured: true`. Se nenhum tiver, o post mais recente é destacado automaticamente.
 
 ### Formatação suportada
 
-O conteúdo aceita Markdown padrão:
+O conteúdo aceita Markdown padrão e blocos de código com sintaxe destacada:
 
 ````markdown
 ## Título de seção
 
 Parágrafo com **negrito**, _itálico_ e `código inline`.
-
-- Item de lista
-- Outro item
 
 ```go
 func main() {
@@ -68,7 +84,7 @@ func main() {
 > Blockquote para citações ou notas.
 ````
 
-Para diagramas, use blocos de código com a linguagem `mermaid`:
+Para diagramas, use blocos `mermaid`:
 
 ````markdown
 ```mermaid
@@ -77,11 +93,7 @@ graph LR
 ```
 ````
 
-### Fluxo de publicação
-
-1. Crie o arquivo em `content/blog/`
-2. Faça commit e push para `main`
-3. O GitHub Actions faz o deploy automaticamente
+### Publicando
 
 ```bash
 git add content/blog/meu-post.md
@@ -89,29 +101,42 @@ git commit -m "docs: add post sobre meu tema"
 git push
 ```
 
+O GitHub Actions faz o deploy automaticamente após o push em `main`.
+
 ---
 
-## Integrando um Novo Projeto
+## 3. Integrando um novo projeto
 
-### 1. Criar o repo a partir do template
+### Passo 1 — Criar o repositório a partir do template
 
-Acesse o repositório [project-template](https://github.com/uMatheusx/project-template) e clique em **Use this template → Create a new repository**.
+Acesse [MatheusAzevedoDev/project-template](https://github.com/MatheusAzevedoDev/project-template) e clique em **Use this template → Create a new repository**.
 
-O novo repo já vem com CI, changelog automático, commitlint, Husky e estrutura de docs prontos.
+O novo repositório já vem com:
+- CI que abre PR automático para `develop` em branches `feature/` e `bug/`
+- Workflow que abre PR automático de `develop` para `main`
+- Release automática com bump de versão, changelog e notificação ao portfolio-hub
+- Commitlint + Husky para validação local de commits
+- Estrutura de documentação em `docs/`
 
-### 2. Configurar o secret `PORTFOLIO_TOKEN`
+### Passo 2 — Configurar o `PORTFOLIO_TOKEN`
 
-No repo criado: **Settings → Secrets and variables → Actions → New repository secret**
+O token já está configurado como secret da organização **MatheusAzevedoDev** e é herdado automaticamente por todos os repositórios criados dentro dela. Nenhuma ação extra é necessária.
 
-| Nome | Valor |
-|------|-------|
-| `PORTFOLIO_TOKEN` | PAT com permissão `repo` no portfolio-hub |
+> Se o repositório for criado fora da organização, adicione o secret manualmente em **Settings → Secrets and variables → Actions → New repository secret** com o nome `PORTFOLIO_TOKEN`.
 
-> Gere o token em **GitHub → Settings → Developer settings → Personal access tokens (classic)**. Marque o escopo `repo`.
+### Passo 3 — Clonar e instalar
 
-### 3. Registrar o projeto no portfolio-hub
+```bash
+git clone https://github.com/MatheusAzevedoDev/seu-projeto
+cd seu-projeto
+npm install
+```
 
-Crie `projects/seu-projeto.json` neste repositório:
+O `npm install` ativa o Husky automaticamente via script `prepare`.
+
+### Passo 4 — (Opcional) Pré-registrar no portfolio-hub
+
+O arquivo `projects/seu-projeto.json` é **criado automaticamente** pelo workflow `project-update.yml` na primeira release. Você pode criá-lo manualmente se quiser definir o `status` ou aparecer no hub antes da primeira release:
 
 ```json
 {
@@ -120,8 +145,8 @@ Crie `projects/seu-projeto.json` neste repositório:
   "description": "Descrição breve e impactante",
   "version": "0.1.0",
   "tags": ["Go", "Node", "Docker"],
-  "repo_url": "https://github.com/uMatheusx/seu-projeto",
-  "status": "active",
+  "repo_url": "https://github.com/MatheusAzevedoDev/seu-projeto",
+  "status": "wip",
   "docs_updated_at": "",
   "changelog_updated_at": ""
 }
@@ -129,54 +154,48 @@ Crie `projects/seu-projeto.json` neste repositório:
 
 **Status válidos:** `active` | `wip` | `archived`
 
-A partir do primeiro merge em `main` no projeto, o portfolio-hub atualiza `version`, `docs_updated_at` e `changelog_updated_at` automaticamente via `repository_dispatch`.
-
-### 4. Abrir PR no portfolio-hub
-
 ```bash
-git checkout -b add/seu-projeto
+git checkout -b feat/add-seu-projeto
 git add projects/seu-projeto.json
 git commit -m "feat: add seu-projeto"
-git push origin add/seu-projeto
+git push origin feat/add-seu-projeto
+# abra o PR para main
 ```
 
 ---
 
-## Fluxo de desenvolvimento nos projetos
+## 4. Fluxo de desenvolvimento nos projetos
 
 Todo projeto criado a partir do template segue este fluxo:
 
 ```
 feature/foo  ou  bug/foo
        │
-       │  push
-       │  CI roda testes
-       │  se passar → PR automático aberto para develop
+       │  push → CI verifica o código
+       │          PR automático aberto para develop
        ▼
     develop
        │
-       │  merge
-       │  PR automático aberto para main
+       │  merge → PR automático aberto para main
        ▼
      main  (produção)
        │
-       │  merge
-       │  bump de versão detectado pelos commits
-       │  CHANGELOG.md gerado
-       │  tag vX.Y.Z criada
-       │  release publicada no GitHub
-       │  portfolio-hub notificado e atualizado
+       │  merge → bump de versão detectado pelos commits
+       │          CHANGELOG.md gerado
+       │          tag vX.Y.Z criada
+       │          release publicada no GitHub
+       │          portfolio-hub notificado via repository_dispatch
        ▼
-  portfolio-hub atualizado
+  portfolio-hub atualizado e redeploy automático
 ```
 
-Sempre trabalhe em branches com prefix `feature/` ou `bug/`. A branch `develop` é criada automaticamente pelo CI na primeira vez que uma dessas branches é pushed.
+Sempre trabalhe em branches com prefixo `feature/` ou `bug/`. A branch `develop` é criada automaticamente pelo CI na primeira vez que uma dessas branches recebe um push.
 
 ---
 
-## Conventional Commits
+## 5. Conventional Commits
 
-Todos os projetos usam o padrão [Conventional Commits](https://www.conventionalcommits.org/):
+Todos os projetos usam o padrão [Conventional Commits](https://www.conventionalcommits.org/).
 
 ```bash
 git commit -m "feat: adiciona endpoint de autenticação"
@@ -192,7 +211,7 @@ git commit -m "fix(api): retorno 404 incorreto na rota /users"
 | `feat` | sim — Features | Nova funcionalidade |
 | `fix` | sim — Bug Fixes | Correção de bug |
 | `perf` | sim — Performance | Melhoria de performance |
-| `docs` | não | Só documentação |
+| `docs` | não | Somente documentação |
 | `refactor` | não | Refatoração sem mudança funcional |
 | `test` | não | Testes |
 | `chore` | não | Build, dependências, CI |
@@ -205,7 +224,7 @@ npm run commit
 
 ---
 
-## Como o changelog e as releases funcionam
+## 6. Como o changelog e as releases funcionam
 
 A cada merge em `main`, o CI detecta o tipo de bump analisando os commits desde a última tag:
 
@@ -215,29 +234,17 @@ A cada merge em `main`, o CI detecta o tipo de bump analisando os commits desde 
 | `feat:` | minor | `1.2.0 → 1.3.0` |
 | qualquer outro | patch | `1.2.0 → 1.2.1` |
 
-Depois do bump, o CI automaticamente:
+Após o bump, o CI automaticamente:
 
 1. Atualiza a versão no `package.json`
 2. Regenera o `CHANGELOG.md` completo
 3. Commita, cria a tag `vX.Y.Z` e faz push
 4. Publica a release no GitHub com o changelog
-5. Envia um `repository_dispatch` para o portfolio-hub
+5. Envia um `repository_dispatch: project-update` ao portfolio-hub
 
-O portfolio-hub recebe o evento e atualiza `projects/seu-projeto.json` e `docs/seu-projeto/CHANGELOG.md` automaticamente.
+O portfolio-hub recebe o evento e atualiza `projects/seu-projeto.json`, `docs/seu-projeto/` e `changelogs/seu-projeto.md` automaticamente, disparando um novo deploy.
 
-### Editando o changelog manualmente
-
-Para ajustar descrições ou remover ruído, edite e commite **somente** o `CHANGELOG.md`:
-
-```bash
-code CHANGELOG.md
-
-git add CHANGELOG.md
-git commit -m "docs: ajusta changelog"
-git push
-```
-
-> Commits que alteram apenas `CHANGELOG.md` ou `docs/` não disparam o CI de release — sem risco de sobrescrita.
+> Mudanças apenas em `docs/` ou `CHANGELOG.md` não disparam o CI de release — sem risco de loop ou sobrescrita.
 
 ### Gerando o changelog localmente
 
@@ -249,92 +256,107 @@ npm run changelog
 npm run changelog:all
 ```
 
+### Editando manualmente
+
+Para ajustar descrições ou remover ruído, edite e commite somente o `CHANGELOG.md`:
+
+```bash
+code CHANGELOG.md
+git add CHANGELOG.md
+git commit -m "docs: ajusta changelog"
+git push
+```
+
+### Criando a primeira release (v1.0.0)
+
+Por padrão o projeto começa na versão `0.1.0`. Para marcar como `1.0.0`, crie a tag manualmente antes do primeiro merge em `main`:
+
+```bash
+git tag v1.0.0
+git push --tags
+```
+
+A partir daí o CI usa essa tag como base para os bumps automáticos.
+
 ---
 
-## Templates de Configuração
+## 7. Referência dos workflows do hub
 
-Estes arquivos já vêm prontos no template e raramente precisam de alteração.
+O portfolio-hub aceita três eventos via `repository_dispatch`. O project-template usa o `project-update` (tudo em um). Os outros dois permitem granularidade para repos que preferem separar docs de releases.
 
-### `package.json` (scripts relevantes)
+### `project-update` — tudo em um
+
+Usado pelo project-template. Atualiza metadados, busca docs e changelog em uma única chamada.
+
+**Payload:**
 
 ```json
 {
-  "scripts": {
-    "commit":         "cz",
-    "changelog":      "conventional-changelog -p angular -i CHANGELOG.md -s -r 1",
-    "changelog:all":  "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
-    "prepare":        "husky"
+  "event_type": "project-update",
+  "client_payload": {
+    "project": "nome-do-projeto",
+    "display_name": "Nome Exibido",
+    "version": "1.2.0",
+    "description": "Descrição do projeto",
+    "tags": ["Go", "Docker"],
+    "repo": "MatheusAzevedoDev/nome-do-projeto"
   }
 }
 ```
 
-### `.commitlintrc.json`
+### `update-docs` — somente documentação
+
+Ideal para repositórios que atualizam docs com frequência independentemente de releases.
+
+**Payload:**
 
 ```json
 {
-  "extends": ["@commitlint/config-conventional"],
-  "rules": {
-    "type-enum": [2, "always", ["feat", "fix", "docs", "style", "refactor", "perf", "test", "chore", "revert"]],
-    "subject-case": [2, "never", ["start-case", "pascal-case", "upper-case"]]
+  "event_type": "update-docs",
+  "client_payload": {
+    "project": "nome-do-projeto",
+    "repo_url": "https://github.com/MatheusAzevedoDev/nome-do-projeto",
+    "commit_sha": "abc123",
+    "updated_at": "2026-04-21T10:00:00Z"
   }
 }
 ```
 
-### `.gitignore`
+O hub busca todos os arquivos de `docs/` no commit especificado e atualiza `docs/nome-do-projeto/` e o campo `docs_updated_at`.
 
-```
-node_modules/
-dist/
-build/
-.env
-.env.local
-.DS_Store
-*.log
-coverage/
-```
+### `new-release` — somente release
 
-### `.editorconfig`
+Ideal para repositórios com processo de release próprio.
 
-```
-root = true
-
-[*]
-charset = utf-8
-end_of_line = lf
-insert_final_newline = true
-trim_trailing_whitespace = true
-
-[*.{js,ts,jsx,tsx}]
-indent_style = space
-indent_size = 2
-
-[*.{md,markdown}]
-trim_trailing_whitespace = false
-```
-
-### `.prettierrc.json`
+**Payload:**
 
 ```json
 {
-  "semi": true,
-  "trailingComma": "es5",
-  "singleQuote": true,
-  "printWidth": 100,
-  "tabWidth": 2
+  "event_type": "new-release",
+  "client_payload": {
+    "project": "nome-do-projeto",
+    "display_name": "Nome Exibido",
+    "version": "1.2.0",
+    "description": "Descrição do projeto",
+    "repo_url": "https://github.com/MatheusAzevedoDev/nome-do-projeto",
+    "updated_at": "2026-04-21T10:00:00Z"
+  }
 }
 ```
+
+O hub atualiza `projects/nome-do-projeto.json` e busca o `CHANGELOG.md` do repositório (ou usa o body da release como fallback).
 
 ---
 
 ## Checklist — novo projeto
 
-- [ ] Repo criado a partir do [project-template](https://github.com/uMatheusx/project-template)
+- [ ] Repo criado a partir do [project-template](https://github.com/MatheusAzevedoDev/project-template)
 - [ ] `npm install` rodado localmente
-- [ ] Secret `PORTFOLIO_TOKEN` configurado no GitHub
-- [ ] `projects/seu-projeto.json` criado no portfolio-hub
+- [ ] Secret `PORTFOLIO_TOKEN` verificado (herdado da org ou configurado manualmente)
 - [ ] `docs/README.md` preenchido com visão geral do projeto
 - [ ] `docs/architecture.md` preenchido com decisões de design
 - [ ] Primeiro commit em uma branch `feature/` mergeado até `main`
+- [ ] Verificar se `projects/seu-projeto.json` foi criado automaticamente no hub
 
 ---
 

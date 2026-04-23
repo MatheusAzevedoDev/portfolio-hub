@@ -5,71 +5,59 @@ icon: layers
 
 # Arquitetura
 
-O `portfolio-hub` é um site estático que agrega metadados, documentação e changelogs de múltiplos projetos. A arquitetura foi pensada para manter o hub simples: ele não executa os projetos, não faz deploy da aplicação final e não depende de backend em tempo de execução para renderizar o conteúdo principal.
+O `portfolio-hub` é um site estático que agrega metadados, documentação e changelogs de múltiplos projetos. Ele não executa os projetos, não tem backend em runtime e não depende de nenhuma API externa para montar o conteúdo principal — tudo parte de arquivos versionados no Git.
 
 ## Visão geral
 
-O fluxo central é:
-
-1. o hub lê arquivos locais versionados em Git;
-2. o Astro gera páginas estáticas a partir desses arquivos;
-3. o GitHub Pages publica o site final;
-4. repositórios externos podem enviar eventos para atualizar docs e releases.
-
 ```mermaid
 flowchart TB
-    subgraph Projects["Repositórios de Projeto"]
-        PA["projeto-a"]
-        PB["projeto-b"]
-        PN["projeto-n"]
+    subgraph Projetos["Repositórios de Projeto"]
+        PT["project-template\n(ou qualquer repo)"]
     end
 
-    subgraph Hub["portfolio-hub"]
+    subgraph Hub["portfolio-hub (.github/workflows)"]
+        PU["project-update.yml\n(repository_dispatch)"]
+        RD["receive-docs.yml\n(update-docs)"]
+        RR["receive-release.yml\n(new-release)"]
+        CL["changelog.yml"]
+        DP["deploy.yml"]
+    end
+
+    subgraph Conteudo["Conteúdo versionado"]
         META["projects/*.json"]
-        DOCS["docs/<slug>/*.md"]
+        DOCS["docs/slug/*.md"]
         CHANGELOGS["changelogs/*.md"]
-        ASTRO["Astro build"]
-        ROUTE["src/pages/projects/[slug].astro"]
+        BLOG["content/blog/*.md"]
     end
 
+    ASTRO["Astro build"]
     PAGES["GitHub Pages"]
 
-    PA -->|"update-docs / new-release"| META
-    PA -->|"update-docs / new-release"| DOCS
-    PA -->|"update-docs / new-release"| CHANGELOGS
+    PT -->|"project-update"| PU
+    PT -->|"update-docs"| RD
+    PT -->|"new-release"| RR
 
-    PB -->|"update-docs / new-release"| META
-    PB -->|"update-docs / new-release"| DOCS
-    PB -->|"update-docs / new-release"| CHANGELOGS
+    PU --> META
+    PU --> DOCS
+    PU --> CHANGELOGS
 
-    PN -->|"update-docs / new-release"| META
-    PN -->|"update-docs / new-release"| DOCS
-    PN -->|"update-docs / new-release"| CHANGELOGS
+    RD --> DOCS
+    RR --> META
+    RR --> CHANGELOGS
 
     META --> ASTRO
-    DOCS --> ROUTE
-    CHANGELOGS --> ROUTE
-    ROUTE --> ASTRO
-    ASTRO --> PAGES
+    DOCS --> ASTRO
+    CHANGELOGS --> ASTRO
+    BLOG --> ASTRO
+
+    ASTRO -->|"deploy.yml"| PAGES
 ```
 
 ## Camadas principais
 
 ### 1. Metadados dos projetos
 
-Cada projeto possui um arquivo em `projects/<slug>.json`.
-
-Essa camada define:
-
-- nome e slug do projeto;
-- descrição curta;
-- versão atual;
-- status (`active`, `wip`, `archived`);
-- tags;
-- URL do repositório;
-- timestamps de atualização.
-
-Exemplo de responsabilidade dessa camada:
+Cada projeto possui um arquivo em `projects/<slug>.json` que define o que é exibido nos cards e na página do projeto.
 
 ```mermaid
 classDiagram
@@ -86,206 +74,204 @@ classDiagram
     }
 ```
 
-## 2. Documentação por projeto
+Esse arquivo é criado automaticamente pelo workflow `project-update.yml` na primeira release de projetos integrados via `project-template`. Pode também ser criado manualmente para projetos que não usam automação.
 
-A pasta `docs/<slug>/` contém o conteúdo técnico do projeto em Markdown.
+### 2. Documentação por projeto
 
-Cada arquivo pode definir:
+A pasta `docs/<slug>/` contém os arquivos Markdown técnicos do projeto. Cada arquivo pode definir:
 
-- `title` via frontmatter;
-- `icon` via frontmatter;
-- diagramas Mermaid;
-- qualquer estrutura de documentação que faça sentido para o projeto.
+- `title` via frontmatter — nome exibido na sidebar
+- `icon` via frontmatter — ícone da aba
+- diagramas Mermaid inline
 
-Arquivos comuns:
+Arquivos comuns: `README.md`, `architecture.md`, `usage.md`, `api.md`, `security.md`
 
-- `README.md`
-- `architecture.md`
-- `usage.md`
-- `api.md`
-- `security.md`
+### 3. Changelog por projeto
 
-## 3. Changelog por projeto
+Cada projeto mantém um arquivo em `changelogs/<slug>.md`. Essa camada é separada da documentação intencionalmente:
 
-Cada projeto pode manter um arquivo em `changelogs/<slug>.md`.
+- documentação explica **como** o projeto funciona
+- changelog explica **o que mudou** entre versões
 
-Essa camada representa o histórico de mudanças do projeto e é separada da documentação para manter responsabilidades claras:
+### 4. Blog
 
-- documentação explica como o projeto funciona;
-- changelog explica o que mudou entre versões.
+Posts em `content/blog/*.md` com frontmatter YAML. O nome do arquivo define a URL (`content/blog/meu-post.md` → `/blog/meu-post`).
 
-## 4. Renderização do site
+### 5. Renderização
 
-O Astro lê o conteúdo do sistema de arquivos no build e gera páginas estáticas.
+O Astro lê todos os arquivos no build e gera HTML estático. Não há fetch de dados em runtime.
 
-As páginas principais são:
-
-| Arquivo | Responsabilidade |
+| Página | Arquivo |
 |---|---|
-| `src/pages/index.astro` | homepage, filtros, listagem de projetos |
-| `src/pages/projects/[slug].astro` | página do projeto, docs, tabs, changelog |
-| `src/layouts/Layout.astro` | shell global, tokens visuais, fontes e scripts globais |
+| Homepage com projetos e filtros | `src/pages/index.astro` |
+| Página de projeto com docs e changelog | `src/pages/projects/[slug].astro` |
+| Listagem do blog | `src/pages/blog/index.astro` |
+| Post individual | `src/pages/blog/[slug].astro` |
+| Navbar compartilhada | `src/components/Nav.astro` |
+| Shell global e tokens CSS | `src/layouts/Layout.astro` |
+
+## Workflows do hub
+
+### deploy.yml
+
+Dispara em todo push para `main`. Faz o build do Astro e publica no GitHub Pages.
+
+```mermaid
+flowchart LR
+    A["push em main"] --> B["Astro build"]
+    B --> C["GitHub Pages"]
+```
+
+### changelog.yml
+
+Dispara em push para `main` (exceto mudanças em `docs/`, `content/`, `projects/`). Gera o `CHANGELOG.md` do próprio hub usando conventional-changelog e commita com `[skip ci]`.
+
+### project-update.yml
+
+Dispara via `repository_dispatch: project-update`. Usado pelo `project-template` após cada release.
+
+**O que faz:**
+1. Cria `projects/<slug>.json` se não existir
+2. Atualiza todos os campos de metadados (versão, descrição, tags, repo_url)
+3. Busca `CHANGELOG.md` do repositório → `changelogs/<slug>.md`
+4. Busca `docs/README.md`, `docs/architecture.md`, `docs/usage.md` → `docs/<slug>/`
+5. Commita e faz push (usa `PORTFOLIO_TOKEN` para disparar o deploy)
+
+```mermaid
+sequenceDiagram
+    participant Repo as Repositório do Projeto
+    participant Hub as portfolio-hub
+    participant Pages as GitHub Pages
+
+    Repo->>Hub: repository_dispatch: project-update
+    Hub->>Hub: atualiza projects/<slug>.json
+    Hub->>Repo: GET CHANGELOG.md
+    Hub->>Repo: GET docs/*.md
+    Hub->>Hub: commita mudanças
+    Hub->>Pages: deploy.yml dispara
+    Pages-->>Repo: site atualizado
+```
+
+### receive-docs.yml
+
+Dispara via `repository_dispatch: update-docs`. Para repositórios que atualizam documentação independentemente de releases.
+
+**O que faz:**
+1. Lista todos os arquivos em `docs/` no commit especificado
+2. Baixa cada arquivo → `docs/<slug>/`
+3. Atualiza `docs_updated_at` em `projects/<slug>.json`
+4. Commita e faz push
+
+**Payload esperado:**
+
+```json
+{
+  "project": "nome-do-projeto",
+  "repo_url": "https://github.com/org/repo",
+  "commit_sha": "abc123def",
+  "updated_at": "2026-04-21T10:00:00Z"
+}
+```
+
+### receive-release.yml
+
+Dispara via `repository_dispatch: new-release`. Para repositórios com processo de release próprio.
+
+**O que faz:**
+1. Atualiza `projects/<slug>.json` com nova versão, preservando `docs_updated_at` e `tags` existentes
+2. Busca `CHANGELOG.md` do repositório (fallback: body da última release no GitHub)
+3. Commita e faz push
+
+**Payload esperado:**
+
+```json
+{
+  "project": "nome-do-projeto",
+  "display_name": "Nome Exibido",
+  "version": "1.2.0",
+  "description": "Descrição do projeto",
+  "repo_url": "https://github.com/org/repo",
+  "updated_at": "2026-04-21T10:00:00Z"
+}
+```
+
+## Workflows do project-template
+
+Projetos criados a partir do `project-template` têm três workflows próprios:
+
+```mermaid
+flowchart LR
+    F["feature/** ou bug/**"] -->|"push → ci.yml"| D["develop\n(PR automático)"]
+    D -->|"merge → promote.yml"| M["main\n(PR automático)"]
+    M -->|"merge → release.yml"| R["vX.Y.Z\nCHANGELOG\nGitHub Release"]
+    R -->|"repository_dispatch\nproject-update"| H["portfolio-hub"]
+    H -->|"deploy.yml"| P["GitHub Pages"]
+```
+
+| Workflow | Gatilho | Função |
+|---|---|---|
+| `ci.yml` | push em `feature/**` ou `bug/**` | Abre PR automático para `develop` |
+| `promote.yml` | push em `develop` | Abre PR automático para `main` |
+| `release.yml` | push em `main` | Bump de versão, changelog, tag, release, notifica hub |
 
 ## Fluxo de build
-
-O build do site é orientado por arquivos locais. Não existe necessidade de buscar dados de uma API em runtime para montar o conteúdo principal.
 
 ```mermaid
 flowchart LR
     A["projects/*.json"] --> D["Astro build"]
     B["docs/<slug>/*.md"] --> D
     C["changelogs/*.md"] --> D
-    D --> E["HTML estático"]
-    E --> F["GitHub Pages"]
-```
-
-## Fluxo de atualização de documentação
-
-Quando um projeto quer atualizar apenas a documentação, o fluxo ideal é isolado e não depende de uma release formal.
-
-```mermaid
-flowchart LR
-    A1["Mudança em docs/"] --> B1["Workflow docs.yml"]
-    B1 --> C1["repository_dispatch: update-docs"]
-    C1 --> D1["portfolio-hub atualiza docs/<slug>/"]
-    D1 --> E1["Build do Astro"]
-    E1 --> F1["GitHub Pages atualizado"]
-```
-
-### Resultado esperado
-
-Esse fluxo deve atualizar principalmente:
-
-- `docs/<slug>/`
-- `projects/<slug>.json` → `docs_updated_at`
-
-## Fluxo de release
-
-Quando um projeto publica uma nova versão, o hub recebe um evento separado.
-
-```mermaid
-flowchart LR
-    A2["git tag / release"] --> B2["Workflow release.yml"]
-    B2 --> C2["repository_dispatch: new-release"]
-    C2 --> D2["portfolio-hub atualiza metadata e changelog"]
-    D2 --> E2["Build do Astro"]
-    E2 --> F2["GitHub Pages atualizado"]
-```
-
-### Resultado esperado
-
-Esse fluxo deve atualizar principalmente:
-
-- `projects/<slug>.json` → `version`
-- `projects/<slug>.json` → `changelog_updated_at`
-- `changelogs/<slug>.md`
-
-## Sequência completa de uma atualização
-
-```mermaid
-sequenceDiagram
-    actor Dev as Developer
-    participant Repo as Repositório do Projeto
-    participant Hub as portfolio-hub
-    participant Build as Astro Build
-    participant Pages as GitHub Pages
-
-    Dev->>Repo: altera docs ou cria release
-    Repo->>Hub: repository_dispatch
-    Hub->>Hub: atualiza arquivos locais
-    Hub->>Build: dispara build
-    Build->>Pages: publica site estático
-    Pages-->>Dev: conteúdo atualizado
+    E["content/blog/*.md"] --> D
+    D --> F["HTML estático"]
+    F --> G["GitHub Pages"]
 ```
 
 ## Decisões arquiteturais
 
-### O hub é um agregador, não o runtime do projeto
+### O hub como agregador, não runtime
 
-O `portfolio-hub` existe para centralizar apresentação, documentação e changelog. Ele não substitui a infraestrutura real de cada projeto.
-
-Isso permite que cada projeto use qualquer stack ou estratégia de deploy:
-
-- GitHub Pages
-- Vercel
-- Netlify
-- Docker
-- VPS
-- Kubernetes
-- AWS
-- qualquer outro ambiente
+O `portfolio-hub` centraliza apresentação, documentação e changelog. Cada projeto pode usar qualquer stack ou estratégia de deploy — o hub não sabe nem precisa saber como o projeto roda.
 
 ### Separação entre docs e releases
 
-Existem dois tipos de atualização com naturezas diferentes:
+Existem dois tipos de atualização com naturezas distintas:
 
 | Tipo | Objetivo | Atualiza |
 |---|---|---|
-| `update-docs` | Atualizar conteúdo técnico | `docs/<slug>/`, `docs_updated_at` |
-| `new-release` | Registrar uma nova versão | `version`, `changelog`, `changelog_updated_at` |
+| `update-docs` | Conteúdo técnico evoluiu | `docs/<slug>/`, `docs_updated_at` |
+| `new-release` | Nova versão publicada | `version`, `changelog`, `changelog_updated_at` |
+| `project-update` | Tudo de uma vez (usado pelo template) | Todos os campos |
 
-Essa separação evita misturar melhoria de documentação com release formal.
+### Git como fonte de verdade
 
-### Arquivos como fonte de verdade
+Toda atualização passa por um commit no repositório do hub. Isso garante:
 
-A arquitetura usa Git como fonte de verdade. Isso simplifica:
+- histórico auditável de todas as mudanças
+- rollback trivial via `git revert`
+- revisão em pull requests antes de ir ao ar
+- nenhum estado externo para gerenciar
 
-- revisão em pull requests;
-- versionamento do conteúdo;
-- auditoria de mudanças;
-- rollback;
-- histórico técnico do portfolio.
+### PORTFOLIO_TOKEN como ponte entre repositórios
 
-## Sidebar de documentação
+O token permite que projetos externos façam push de conteúdo para o hub. Armazenado como secret da organização MatheusAzevedoDev, é herdado por todos os repositórios sem configuração individual.
 
-A sidebar da página de projeto é gerada a partir dos arquivos existentes em `docs/<slug>/`.
+## Sistema visual
 
-Cada item pode ser definido por:
+A interface foi construída para leitura técnica:
 
-- nome do arquivo;
-- `title` no frontmatter;
-- `icon` no frontmatter;
-- ordem por prefixo numérico ou convenção de nomes.
+- tipografia: **Syne** (display/headings), **DM Sans** (corpo), **JetBrains Mono** (código)
+- tokens CSS em custom properties (`--fg-1`, `--accent`, `--border`, etc.)
+- navbar compartilhada via componente `Nav.astro`
+- cards com filtros por tag e status na homepage
+- sidebar de documentação gerada a partir dos arquivos em `docs/<slug>/`
+- renderização de Markdown com suporte nativo a Mermaid
 
-Exemplo de documentos:
+## Escalabilidade
 
-```text
-docs/meu-projeto/
-├── README.md
-├── architecture.md
-├── usage.md
-├── api.md
-└── monitoring.md
-```
+Adicionar um novo projeto ao hub requer apenas:
 
-## Sistema visual e navegação
+1. um JSON em `projects/`
+2. uma pasta em `docs/`
+3. um arquivo em `changelogs/`
 
-A interface atual foi construída com foco em leitura técnica:
-
-- homepage com cards e filtros;
-- página de projeto com header fixo, sidebar e pills;
-- tipografia com `Syne`, `DM Sans` e `JetBrains Mono`;
-- tokens visuais definidos em CSS custom properties;
-- renderização de Markdown com suporte a Mermaid;
-- ícones de documentação configuráveis por frontmatter.
-
-## Escalabilidade do modelo
-
-Essa arquitetura funciona bem porque adicionar um novo projeto exige apenas:
-
-1. um JSON em `projects/`;
-2. uma pasta em `docs/`;
-3. um changelog em `changelogs/`.
-
-O restante da renderização é reaproveitado automaticamente pelo Astro.
-
-## Resumo
-
-Em termos práticos, a arquitetura do `portfolio-hub` se apoia em quatro princípios:
-
-1. **conteúdo em arquivos versionados**;
-2. **build estático com Astro**;
-3. **publicação simples via GitHub Pages**;
-4. **integração opcional por workflows entre repositórios**.
-
-Esse modelo mantém o portfolio previsível, fácil de evoluir e independente da stack interna de cada projeto.
+O restante da renderização é reaproveitado automaticamente. O modelo funciona para qualquer número de projetos sem mudança de código.

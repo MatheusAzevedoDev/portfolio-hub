@@ -9,23 +9,39 @@ npm install
 npm run dev
 ```
 
-Acesse em `http://localhost:3000`
+Acesse em `http://localhost:4321`
+
+## Configuração
+
+Edite `src/config.ts` para personalizar o site:
+
+```ts
+export const SITE_CONFIG = {
+  githubUser: 'seu-usuario',
+  linkedinUrl: 'https://linkedin.com/in/seu-perfil',
+  repoName: 'portfolio-hub',
+  siteName: 'Seu Nome',
+  siteDescription: 'Descrição do site',
+};
+```
 
 ## Estrutura
 
 ```
 portfolio-hub/
-├── content/blog/        # Posts do blog (Markdown)
-├── docs/                # Documentação dos projetos
+├── content/
+│   └── blog/            # Posts do blog (Markdown)
+├── docs/                # Documentação dos projetos por slug
 ├── projects/            # Metadados dos projetos (JSON)
+├── changelogs/          # Changelogs dos projetos por slug
 ├── src/
-│   ├── components/      # Componentes Astro
+│   ├── components/      # Componentes Astro (Nav, ProjectCard, BlogCard)
 │   ├── layouts/         # Layout global
 │   └── pages/           # Páginas (index, blog, projects)
 └── .github/workflows/   # CI/CD e automação
 ```
 
-## Configuração de Projetos
+## Projetos
 
 Cada projeto é representado por um arquivo JSON em `projects/`:
 
@@ -36,12 +52,16 @@ Cada projeto é representado por um arquivo JSON em `projects/`:
   "description": "Descrição do projeto",
   "version": "1.0.0",
   "tags": ["Go", "Kubernetes"],
-  "repo_url": "https://github.com/user/repo",
+  "repo_url": "https://github.com/usuario/repo",
   "status": "active",
-  "docs_updated_at": "2024-01-15T10:00:00Z",
-  "changelog_updated_at": "2024-01-15T10:00:00Z"
+  "docs_updated_at": "2026-04-21T00:00:00Z",
+  "changelog_updated_at": "2026-04-21T00:00:00Z"
 }
 ```
+
+**Status válidos:** `active` | `wip` | `archived`
+
+> Projetos integrados via `project-template` criam e atualizam este arquivo automaticamente a cada release.
 
 ## Blog
 
@@ -51,8 +71,9 @@ Posts ficam em `content/blog/` como arquivos Markdown com frontmatter:
 ---
 title: Título do post
 description: Descrição breve
-date: 2024-01-15
+date: 2026-04-21
 tags: [Go, GitOps]
+featured: true
 ---
 
 Conteúdo aqui...
@@ -67,15 +88,17 @@ Conteúdo aqui...
 | `npm run preview` | Preview do build |
 | `npm run changelog` | Atualiza `CHANGELOG.md` desde o último tag |
 | `npm run changelog:all` | Regenera `CHANGELOG.md` do histórico completo |
-| `npm run version:patch` | Bumpa versão patch (1.0.0 → 1.0.1) |
-| `npm run version:minor` | Bumpa versão minor (1.0.0 → 1.1.0) |
-| `npm run version:major` | Bumpa versão major (1.0.0 → 2.0.0) |
-| `npm run release` | Gera changelog, commita e cria tag da versão |
+
+## Workflows
+
+| Arquivo | Gatilho | Função |
+|---------|---------|--------|
+| `deploy.yml` | push em `main` | Build e deploy no GitHub Pages |
+| `changelog.yml` | push em `main` | Gera e commita o `CHANGELOG.md` do hub |
+| `project-update.yml` | `repository_dispatch: project-update` | Atualiza metadados, docs e changelog de um projeto |
+| `receive-docs.yml` | `repository_dispatch: update-docs` | Atualiza apenas a documentação de um projeto |
+| `receive-release.yml` | `repository_dispatch: new-release` | Atualiza versão e changelog de um projeto |
 
 ## Documentação
 
-Para integrar um novo projeto ao portfolio-hub, veja [docs/SETUP.md](./docs/SETUP.md).
-
-## Licença
-
-MIT
+Para integrar novos projetos e entender a arquitetura completa, veja a [documentação do portfolio-hub](./docs/gitops-portfolio-lambda/).

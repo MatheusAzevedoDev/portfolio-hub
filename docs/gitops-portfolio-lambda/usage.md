@@ -5,76 +5,49 @@ icon: terminal
 
 # Como Usar
 
-Este guia mostra como operar o `portfolio-hub` no dia a dia: adicionar projetos, organizar documentação, integrar repositórios externos, publicar changelogs e manter o site coerente.
+Guia operacional do `portfolio-hub`: como adicionar projetos, organizar documentação, integrar repositórios externos e manter o site coerente.
+
+## Instalação local
+
+```bash
+npm install
+npm run dev     # http://localhost:4321
+npm run build   # build de produção
+npm run preview # preview do build
+```
 
 ## Formas de uso
 
-O hub pode ser usado de duas maneiras:
+### 1. Gestão manual
 
-### 1. Gestão manual no próprio repositório
-
-Você atualiza diretamente:
+Você edita diretamente os arquivos no repositório do hub:
 
 - `projects/<slug>.json`
 - `docs/<slug>/*.md`
 - `changelogs/<slug>.md`
 
-Esse é o caminho mais simples para começar.
+Adequado para manutenção pontual ou projetos sem automação.
 
-### 2. Gestão distribuída com automação
+### 2. Gestão automatizada via project-template
 
-Cada projeto vive em seu próprio repositório e envia atualizações para o hub por workflow.
+Cada projeto vive em seu próprio repositório e envia atualizações ao hub via `repository_dispatch`. O hub recebe, atualiza os arquivos e dispara um novo deploy.
 
-Esse modelo é o mais indicado quando:
+Esse modelo é o mais indicado quando cada projeto tem ciclo de vida próprio.
 
-- cada projeto tem ciclo de vida próprio;
-- você quer versionar docs junto do projeto original;
-- o hub deve apenas agregar e publicar conteúdo.
+---
 
-## Instalação local
+## Criando um projeto no hub
 
-Para rodar o hub localmente:
-
-```bash
-npm install
-npm run dev
-```
-
-Para gerar o build de produção:
-
-```bash
-npm run build
-```
-
-## Estrutura mínima de um projeto
-
-Para um projeto aparecer bem no hub, mantenha estes três elementos:
+### Estrutura mínima
 
 ```text
 projects/meu-projeto.json
 docs/meu-projeto/
+    └── README.md
 changelogs/meu-projeto.md
 ```
 
-### Exemplo de estrutura
-
-```text
-portfolio-hub/
-├── projects/
-│   └── meu-projeto.json
-├── docs/
-│   └── meu-projeto/
-│       ├── README.md
-│       ├── architecture.md
-│       ├── usage.md
-│       └── api.md
-└── changelogs/
-    └── meu-projeto.md
-```
-
-## Criando um projeto novo
-
-### Passo 1 — criar o arquivo em `projects/`
+### Arquivo de metadados
 
 Crie `projects/meu-projeto.json`:
 
@@ -83,10 +56,10 @@ Crie `projects/meu-projeto.json`:
   "name": "meu-projeto",
   "display_name": "Meu Projeto",
   "description": "Descrição curta e objetiva do projeto.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "status": "active",
-  "tags": ["astro", "typescript", "docs"],
-  "repo_url": "https://github.com/seu-usuario/meu-projeto",
+  "tags": ["go", "api", "docker"],
+  "repo_url": "https://github.com/MatheusAzevedoDev/meu-projeto",
   "docs_updated_at": "2026-04-21T00:00:00Z",
   "changelog_updated_at": "2026-04-21T00:00:00Z"
 }
@@ -96,11 +69,11 @@ Crie `projects/meu-projeto.json`:
 
 | Campo | Obrigatório | Descrição |
 |---|---|---|
-| `name` | Sim | Slug do projeto. Deve bater com pasta de docs e arquivo de changelog |
+| `name` | Sim | Slug — deve bater com a pasta de docs e o arquivo de changelog |
 | `display_name` | Sim | Nome exibido no card e na página |
 | `description` | Sim | Resumo curto do projeto |
 | `version` | Sim | Versão exibida na interface |
-| `status` | Recomendado | Estado atual do projeto |
+| `status` | Sim | Estado atual do projeto |
 | `tags` | Sim | Lista de tags para filtros e contexto |
 | `repo_url` | Sim | URL do repositório principal |
 | `docs_updated_at` | Recomendado | Timestamp ISO da última atualização de docs |
@@ -108,46 +81,32 @@ Crie `projects/meu-projeto.json`:
 
 ### Valores de `status`
 
-| Valor | Uso recomendado |
+| Valor | Uso |
 |---|---|
-| `active` | Projeto está pronto, mantido ou em destaque |
-| `wip` | Projeto ainda está sendo construído |
-| `archived` | Projeto legado, encerrado ou só para referência |
+| `active` | Projeto pronto, mantido ou em destaque |
+| `wip` | Projeto em construção |
+| `archived` | Encerrado ou mantido só como referência |
 
-## Adicionando documentação
+---
 
-Crie a pasta `docs/meu-projeto/` e adicione arquivos Markdown.
+## Organizando a documentação
 
-Exemplo:
+### Arquivos recomendados
 
 ```text
 docs/meu-projeto/
-├── README.md
-├── architecture.md
-├── usage.md
-├── api.md
-└── security.md
+├── README.md          # visão geral e quickstart
+├── architecture.md    # fluxos, diagramas, decisões
+├── usage.md           # setup, comandos, integração
+├── api.md             # endpoints ou referência técnica
+└── security.md        # permissões, autenticação
 ```
 
-### Documentos mais comuns
+Outros documentos comuns: `deploy.md`, `monitoring.md`, `links.md`
 
-| Arquivo | Objetivo |
-|---|---|
-| `README.md` | Visão geral do projeto |
-| `architecture.md` | Estrutura, fluxos, decisões técnicas |
-| `usage.md` | Setup, comandos, integração, operação |
-| `api.md` | Endpoints, contratos ou referência |
-| `security.md` | Permissões, autenticação, políticas |
-| `deploy.md` | Estratégia de deploy |
-| `monitoring.md` | Logs, métricas, observabilidade |
+### Ordem na sidebar
 
-## Ordem da documentação na sidebar
-
-A sidebar é montada a partir dos arquivos da pasta do projeto.
-
-### Estratégia 1 — ordem por prefixo
-
-Se você quiser controle total, use prefixos numéricos:
+**Por prefixo numérico** (controle total):
 
 ```text
 docs/meu-projeto/
@@ -157,26 +116,15 @@ docs/meu-projeto/
 └── 04-api.md
 ```
 
-### Estratégia 2 — nomes convencionais
+**Por nomes convencionais** (mais simples):
 
-Se preferir algo mais simples, use nomes previsíveis:
+Sem prefixo numérico, nomes como `README`, `architecture`, `usage` e `api` formam uma navegação previsível.
 
-- `README.md`
-- `architecture.md`
-- `usage.md`
-- `api.md`
+Use prefixo quando a ordem for crítica; use nomes convencionais quando quiser simplicidade.
 
-### Recomendação
+### Frontmatter por documento
 
-- use prefixo quando a ordem importar muito;
-- use nomes convencionais quando quiser simplicidade;
-- evite misturar muitos padrões no mesmo projeto.
-
-## Títulos e ícones por frontmatter
-
-Cada documento pode definir metadados próprios no topo do arquivo.
-
-Exemplo:
+Cada documento pode definir título e ícone:
 
 ```md
 ---
@@ -187,55 +135,25 @@ icon: layers
 # Arquitetura
 ```
 
-### Campos suportados
-
-| Campo | Descrição |
-|---|---|
-| `title` | Nome exibido na navegação |
-| `icon` | Ícone da sidebar e das abas do documento |
-
 ### Ícones disponíveis
 
-O sistema já suporta estes nomes:
-
-- `home`
-- `layers`
-- `terminal`
-- `code`
-- `zap`
-- `file`
-- `book`
-- `changelog`
-- `clock`
-- `shield`
-- `database`
-- `settings`
-- `list`
-- `star`
-- `link`
-- `chart`
-- `package`
-- `github`
-
-### Exemplo por tipo de documento
-
-| Documento | Ícone sugerido |
+| Ícone | Uso sugerido |
 |---|---|
-| `README.md` | `home` |
-| `architecture.md` | `layers` |
-| `usage.md` | `terminal` |
-| `api.md` | `zap` ou `code` |
-| `security.md` | `shield` |
-| `deploy.md` | `package` |
-| `monitoring.md` | `chart` |
-| `links.md` | `link` |
-| `changelog.md` | `clock` ou `changelog` |
+| `home` | README / visão geral |
+| `layers` | architecture |
+| `terminal` | usage / operação |
+| `zap` ou `code` | api |
+| `shield` | security |
+| `package` | deploy |
+| `chart` | monitoring |
+| `clock` ou `changelog` | changelog |
+| `link` | links externos |
+| `database` | banco de dados |
+| `settings` | configuração |
 
-Se você não definir `icon`, o sistema tenta inferir automaticamente a partir do nome do arquivo.
+Se `icon` não for definido, o sistema infere pelo nome do arquivo.
 
-## Exemplo completo de documentação
-
-### `README.md`
+### Exemplo completo de `README.md`
 
 ```md
 ---
@@ -246,9 +164,16 @@ icon: home
 # Meu Projeto
 
 Resumo do projeto, objetivo, stack e contexto.
+
+## Quickstart
+
+```bash
+go build ./...
+./bin/meu-projeto
+```
 ```
 
-### `architecture.md`
+### Exemplo completo de `architecture.md`
 
 ~~~md
 ---
@@ -264,253 +189,195 @@ flowchart LR
     API --> Worker
     Worker --> Database
 ```
+
+## Decisões
+
+| Decisão | Motivo |
+|---|---|
+| PostgreSQL | ACID necessário para consistência |
+| gRPC interno | Latência baixa entre serviços |
 ~~~
 
-### `usage.md`
-
-~~~md
 ---
-title: Como Usar
-icon: terminal
----
-
-# Como Usar
-
-## Instalação
-
-```bash
-npm install
-npm run dev
-```
-~~~
-
-## Suporte a Mermaid
-
-Os documentos aceitam diagramas Mermaid.
-
-Exemplo:
-
-```mermaid
-sequenceDiagram
-    participant Repo as Projeto
-    participant Hub as Portfolio Hub
-    participant Pages as GitHub Pages
-
-    Repo->>Hub: update-docs
-    Hub->>Pages: rebuild
-```
-
-Isso é útil para documentar:
-
-- fluxos de deploy;
-- arquitetura de serviços;
-- pipelines CI/CD;
-- integrações entre sistemas;
-- sequências operacionais.
 
 ## Changelog por projeto
 
-Cada projeto deve ter seu próprio arquivo em `changelogs/<slug>.md`.
-
-### Formato recomendado
-
-Use um padrão inspirado em **Keep a Changelog**.
-
-Exemplo:
+Cada projeto deve ter `changelogs/<slug>.md`. Formato inspirado em **Keep a Changelog**:
 
 ```md
 # Changelog
 
-## [1.1.0] - 2026-04-21
+## [1.2.0] - 2026-04-21
 
 ### Added
-- Suporte a ícones por frontmatter
-- Filtro por status na homepage
+- Suporte a múltiplos ambientes via variáveis de ambiente
 
 ### Changed
-- Reorganização da documentação do projeto
+- Timeout de conexão reduzido de 30s para 10s
 
 ### Fixed
-- Correção da largura excessiva na landing page
+- Panic em request concorrente no pool de conexões
+
+## [1.1.0] - 2026-03-15
+
+### Added
+- Endpoint de healthcheck em /health
 ```
-
-### Convenções recomendadas
-
-- uma entrada por release;
-- usar cabeçalho com versão e data;
-- separar mudanças em categorias;
-- evitar listar cada commit literalmente;
-- priorizar informação útil para quem lê o projeto.
 
 ### Categorias úteis
 
-- `Added`
-- `Changed`
-- `Fixed`
-- `Removed`
-- `Deprecated`
-- `Security`
+`Added` · `Changed` · `Fixed` · `Removed` · `Deprecated` · `Security`
+
+Projetos usando o `project-template` têm o changelog gerado automaticamente a partir dos Conventional Commits.
+
+---
 
 ## Integração com repositórios externos
 
-Quando cada projeto vive no seu próprio repositório, você pode usar workflows para enviar atualizações ao hub.
+Três eventos `repository_dispatch` são suportados pelo hub:
 
-Os dois eventos principais são:
+### `project-update` — tudo em um (recomendado)
 
-- `update-docs`
-- `new-release`
+Usado pelo `project-template`. Atualiza metadados, docs e changelog em uma única chamada.
 
-## Fluxo `update-docs`
+```yaml
+- name: Notificar portfolio-hub
+  env:
+    PORTFOLIO_TOKEN: ${{ secrets.PORTFOLIO_TOKEN }}
+  run: |
+    curl -s -X POST \
+      -H "Authorization: token $PORTFOLIO_TOKEN" \
+      -H "Accept: application/vnd.github.v3+json" \
+      "https://api.github.com/repos/MatheusAzevedoDev/portfolio-hub/dispatches" \
+      -d '{
+        "event_type": "project-update",
+        "client_payload": {
+          "project": "meu-projeto",
+          "display_name": "Meu Projeto",
+          "version": "1.2.0",
+          "description": "Descrição do projeto",
+          "tags": ["go", "api"],
+          "repo": "MatheusAzevedoDev/meu-projeto"
+        }
+      }'
+```
 
-Esse fluxo é usado quando a documentação do projeto muda.
+### `update-docs` — somente documentação
 
-### O que ele deve fazer
-
-1. detectar mudanças em `docs/`;
-2. autenticar com GitHub;
-3. disparar um `repository_dispatch` para o `portfolio-hub`;
-4. enviar metadados suficientes para o hub localizar o projeto;
-5. permitir que o hub atualize `docs/<slug>/` e `docs_updated_at`.
-
-### Exemplo conceitual
+Para repositórios que atualizam docs com frequência, independentemente de releases.
 
 ```yaml
 name: docs
 
 on:
   push:
-    paths:
-      - "docs/**"
-    branches:
-      - main
+    paths: ["docs/**"]
+    branches: [main]
 
 jobs:
-  notify-portfolio:
+  notify:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Dispatch update-docs
         run: |
-          curl -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.PORTFOLIO_TOKEN }}" \
-            https://api.github.com/repos/uMatheusx/portfolio-hub/dispatches \
-            -d "{\"event_type\":\"update-docs\",\"client_payload\":{\"project\":\"meu-projeto\",\"repo\":\"seu-usuario/meu-projeto\"}}"
+          SHA=$(git rev-parse HEAD)
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.PORTFOLIO_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/MatheusAzevedoDev/portfolio-hub/dispatches" \
+            -d "{
+              \"event_type\": \"update-docs\",
+              \"client_payload\": {
+                \"project\": \"meu-projeto\",
+                \"repo_url\": \"https://github.com/MatheusAzevedoDev/meu-projeto\",
+                \"commit_sha\": \"$SHA\",
+                \"updated_at\": \"$NOW\"
+              }
+            }"
 ```
 
-## Fluxo `new-release`
+O hub busca todos os arquivos de `docs/` no commit especificado e atualiza `docs/meu-projeto/`.
 
-Esse fluxo é usado quando uma release formal acontece.
+### `new-release` — somente release
 
-### O que ele deve fazer
-
-1. disparar em `git tag`;
-2. gerar ou consolidar informações da release;
-3. notificar o hub com versão, slug e dados relevantes;
-4. permitir que o hub atualize `projects/<slug>.json`;
-5. permitir que o hub atualize `changelogs/<slug>.md`.
-
-### Exemplo conceitual
+Para repositórios com processo de release próprio que não usam o `project-template`.
 
 ```yaml
 name: release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
 
 jobs:
-  notify-portfolio:
+  notify:
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch new-release
         run: |
-          curl -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.PORTFOLIO_TOKEN }}" \
-            https://api.github.com/repos/uMatheusx/portfolio-hub/dispatches \
-            -d "{\"event_type\":\"new-release\",\"client_payload\":{\"project\":\"meu-projeto\",\"version\":\"${GITHUB_REF_NAME}\"}}"
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.PORTFOLIO_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/MatheusAzevedoDev/portfolio-hub/dispatches" \
+            -d "{
+              \"event_type\": \"new-release\",
+              \"client_payload\": {
+                \"project\": \"meu-projeto\",
+                \"display_name\": \"Meu Projeto\",
+                \"version\": \"${GITHUB_REF_NAME#v}\",
+                \"description\": \"Descrição do projeto\",
+                \"repo_url\": \"https://github.com/MatheusAzevedoDev/meu-projeto\",
+                \"updated_at\": \"$NOW\"
+              }
+            }"
 ```
+
+O hub busca o `CHANGELOG.md` do repositório (fallback: body da última release no GitHub) e atualiza `changelogs/meu-projeto.md`.
+
+---
 
 ## Token para integração
 
-Para um repositório externo atualizar o hub, você normalmente precisa de um token com permissão para disparar eventos no repositório do portfolio.
-
-### Opção prática
-
-Usar um **Personal Access Token** armazenado como secret no repositório do projeto.
-
-Exemplo de secret:
-
 | Secret | Descrição |
 |---|---|
-| `PORTFOLIO_TOKEN` | Token com permissão para interagir com o repositório `portfolio-hub` |
+| `PORTFOLIO_TOKEN` | PAT com acesso de escrita ao repositório `portfolio-hub` |
 
-### Cuidados
-
-- use o menor escopo necessário;
-- armazene apenas em GitHub Secrets;
-- nunca commite o token;
-- rotacione o token periodicamente;
-- centralize a responsabilidade do token em uma conta controlada.
-
-## Como manter o hub atualizado
-
-### Atualização manual
-
-Quando você editar diretamente o hub:
-
-1. ajuste `projects/<slug>.json`;
-2. adicione ou revise `docs/<slug>/`;
-3. atualize `changelogs/<slug>.md`;
-4. faça commit e push.
-
-### Atualização automática
-
-Quando usar repositórios externos:
-
-1. mantenha docs e changelog no projeto original;
-2. dispare workflows em mudanças de docs e releases;
-3. deixe o hub receber, consolidar e publicar.
-
-## Convenções recomendadas de tags
-
-As tags em `projects/<slug>.json` ajudam a comunicar rapidamente o tipo do projeto.
-
-Exemplos de tags úteis:
-
-- stack: `astro`, `react`, `node`, `python`, `go`
-- domínio: `api`, `frontend`, `infra`, `automation`, `cli`
-- capacidades: `github-actions`, `docker`, `postgres`, `aws`, `observability`
+O token está configurado como secret da organização **MatheusAzevedoDev** e é herdado automaticamente por todos os repositórios da org. Para repositórios externos à organização, adicione o secret manualmente em **Settings → Secrets and variables → Actions**.
 
 Boas práticas:
+- armazene apenas em GitHub Secrets, nunca em código
+- rotacione periodicamente
+- use o menor escopo necessário
 
-- prefira tags curtas;
-- evite duplicidade semântica;
-- use termos consistentes entre projetos;
-- pense nas tags como filtro visual e não como texto longo.
+---
 
-## Checklist para cadastrar um projeto novo
+## Convenções de tags
+
+As tags em `projects/<slug>.json` comunicam o tipo e contexto do projeto:
+
+- **stack:** `astro`, `react`, `node`, `python`, `go`, `typescript`
+- **domínio:** `api`, `frontend`, `infra`, `automation`, `cli`, `library`
+- **capacidades:** `github-actions`, `docker`, `postgres`, `gitops`, `observability`
+
+Prefira tags curtas, evite duplicidade semântica e mantenha consistência entre projetos.
+
+---
+
+## Checklist para um novo projeto
 
 ```text
-[ ] Criar projects/<slug>.json
-[ ] Definir name, display_name, description, version, status, tags e repo_url
-[ ] Criar docs/<slug>/README.md
-[ ] Criar docs/<slug>/architecture.md
-[ ] Criar docs/<slug>/usage.md
-[ ] Criar changelogs/<slug>.md
-[ ] Definir frontmatter com title e icon
-[ ] Validar a ordem dos documentos
-[ ] Revisar tags e status
-[ ] Fazer build local
+[ ] Repo criado a partir do project-template (ou manualmente)
+[ ] npm install rodado (ativa Husky automaticamente)
+[ ] PORTFOLIO_TOKEN verificado (herdado da org ou configurado manualmente)
+[ ] projects/<slug>.json criado no hub (ou aguardar criação automática)
+[ ] docs/<slug>/README.md preenchido com visão geral
+[ ] docs/<slug>/architecture.md preenchido com decisões de design
+[ ] changelogs/<slug>.md criado (ou aguardar geração automática)
+[ ] Frontmatter com title e icon definido nos documentos
+[ ] Status e tags revisados
+[ ] Primeiro commit em feature/ mergeado até main
+[ ] Verificar que hub recebeu o project-update e fez deploy
 ```
-
-## Resumo
-
-O ciclo mais saudável para manter o `portfolio-hub` é:
-
-1. tratar `projects/*.json` como fonte de metadados;
-2. tratar `docs/<slug>/` como fonte da navegação técnica;
-3. tratar `changelogs/<slug>.md` como histórico de releases;
-4. usar `status`, `tags`, `title` e `icon` de forma consistente;
-5. automatizar `update-docs` e `new-release` quando o projeto estiver em repositório separado.
