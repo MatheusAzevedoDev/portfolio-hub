@@ -1,5 +1,10 @@
+## 0.12.0 (2026-04-23)
+
+* feat: teste ([d969de0](https://github.com/MatheusAzevedoDev/projeto-teste/commit/d969de0))
+
 ## 0.11.0 (2026-04-23)
 
+* chore: release v0.11.0 [skip ci] ([201246c](https://github.com/MatheusAzevedoDev/projeto-teste/commit/201246c))
 * feat: rezando... ([f0346bd](https://github.com/MatheusAzevedoDev/projeto-teste/commit/f0346bd))
 
 ## 0.10.0 (2026-04-23)
