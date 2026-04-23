@@ -58,6 +58,7 @@ jobs:
           REPO="${{ github.event.client_payload.repo }}"
 
           mkdir -p "docs/$PROJECT"
+          mkdir -p "changelogs"
 
           fetch_file() {
             local src=$1
@@ -69,7 +70,7 @@ jobs:
               -o "$dest"
           }
 
-          fetch_file "CHANGELOG.md" "docs/$PROJECT/CHANGELOG.md"
+          fetch_file "CHANGELOG.md" "changelogs/$PROJECT.md"
           fetch_file "docs/README.md" "docs/$PROJECT/README.md"
           fetch_file "docs/architecture.md" "docs/$PROJECT/architecture.md"
           fetch_file "docs/usage.md" "docs/$PROJECT/usage.md"
@@ -81,7 +82,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "projects/$PROJECT.json" "docs/$PROJECT/"
+          git add "projects/$PROJECT.json" "docs/$PROJECT/" "changelogs/$PROJECT.md"
           git diff --staged --quiet || git commit -m "chore($PROJECT): update to v$VERSION"
           git pull --rebase origin main
           git push
