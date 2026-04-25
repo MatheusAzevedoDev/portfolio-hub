@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { marked } from 'marked';
+import { parseMarkdown } from '../../lib/markdown';
 
 export function getStaticPaths() {
   try {
@@ -152,7 +152,7 @@ if (existsSync(docsDir)) {
     return {
       id,
       label: toLabel(id, title),
-      html:  String(marked.parse(stripped)),
+      html:  parseMarkdown(stripped),
       icon:  icon && ICONS[icon] ? icon : getAutoIcon(id),
     };
   });
@@ -162,7 +162,7 @@ if (existsSync(docsDir)) {
 let changelogHtml = '';
 const changelogPath = join(process.cwd(), 'changelogs', `${slug}.md`);
 if (existsSync(changelogPath)) {
-  changelogHtml = String(marked.parse(readFileSync(changelogPath, 'utf-8')));
+  changelogHtml = parseMarkdown(readFileSync(changelogPath, 'utf-8'));
 }
 
 const status = project.status || 'active';
@@ -180,10 +180,13 @@ const status = project.status || 'active';
         </a>
         <span class="breadcrumb-sep">/</span>
         <div class="header-project">
-          <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
-            <path d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z" stroke="var(--accent)" stroke-width="2"/>
-            <path d="M15 32 L15 17 L24 27 L33 17 L33 32" stroke="#f0f0fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="24" cy="36" r="2" fill="var(--accent)"/>
+          <svg width="22" height="18" viewBox="0 0 40 32" fill="none">
+            <line x1="4" y1="28" x2="4" y2="8" stroke="var(--fg-1)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="4" y1="8" x2="20" y2="22" stroke="var(--fg-1)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="20" y1="4" x2="4" y2="8" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="20" y1="4" x2="36" y2="8" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="20" y1="22" x2="36" y2="8" stroke="var(--fg-1)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="36" y1="8" x2="36" y2="28" stroke="var(--fg-1)" stroke-width="2.5" stroke-linecap="round"/>
           </svg>
           <span class="header-project-name">{project.display_name ?? slug}</span>
           <span class="header-version">{project.version ? `v${project.version}` : '—'}</span>
@@ -201,7 +204,7 @@ const status = project.status || 'active';
         {project.repo_url && (
           <a href={project.repo_url} target="_blank" rel="noopener" class="header-gh-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-            GitHub
+            <span class="gh-label">GitHub</span>
           </a>
         )}
       </div>
@@ -474,6 +477,14 @@ const status = project.status || 'active';
     .docs-main { padding-left: 0; }
     .header-project-name { max-width: 120px; }
     .header-badge-active, .header-badge-wip { display: none; }
+  }
+  @media (max-width: 480px) {
+    .header-inner { padding: 0 16px; }
+    .docs-body { padding: 0 16px; }
+    .docs-main { padding: 20px 0 60px; }
+    .header-version { display: none; }
+    .gh-label { display: none; }
+    .header-gh-btn { padding: 6px 8px; gap: 0; }
   }
 </style>
 

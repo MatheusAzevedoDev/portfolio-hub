@@ -174,4 +174,3 @@ Para adicionar ou manter um projeto no hub:
 
 - **Arquitetura** — entenda os eventos, workflows e a organização interna do hub
 - **Como Usar** — configure projetos, documente e integre repositórios externos
-- **SETUP.md** — guia passo a passo para configurar tudo do zero

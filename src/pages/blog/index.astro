@@ -378,8 +378,17 @@ const gridPosts = posts.filter(p => p !== featuredPost);
   @media (max-width: 640px) {
     .page-header { padding: 60px 20px 40px; }
     .blog-main { padding: 32px 20px 80px; }
-    #main-nav { padding: 0 20px; }
     .featured-card { padding: 24px 20px; }
+    .site-footer { padding: 0 20px; }
+    .footer-links { gap: 12px; }
+  }
+  @media (max-width: 480px) {
+    .page-header { padding: 40px 16px 28px; }
+    .blog-main { padding: 24px 16px 60px; }
+    .featured-card { padding: 20px 16px; }
+    .featured-desc { font-size: 14px; }
+    .site-footer { padding: 0 16px; }
+    .posts-grid { grid-template-columns: 1fr; }
   }
 </style>
 

@@ -18,16 +18,26 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <title>{title}</title>
   <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
 
+  <!-- No-flash theme: applies before any CSS renders -->
+  <script is:inline>
+    (function() {
+      var t = localStorage.getItem('portfolio-theme') ||
+        (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
   <script type="module" is:inline>
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
     mermaid.initialize({
       startOnLoad: false,
-      theme: 'dark',
-      themeVariables: {
+      theme: isDark ? 'dark' : 'default',
+      themeVariables: isDark ? {
         background: '#08080f',
         primaryColor: 'oklch(65% 0.28 268)',
         primaryTextColor: '#f0f0fa',
@@ -38,10 +48,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         edgeLabelBackground: '#0f0f1a',
         clusterBkg: '#161625',
         titleColor: '#f0f0fa',
-      },
+      } : {},
     });
     window.__mermaid = mermaid;
     document.dispatchEvent(new CustomEvent('mermaid:ready'));
+
+    document.querySelectorAll('.prose table').forEach(table => {
+      if (table.closest('.table-wrap')) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'table-wrap';
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+    });
   </script>
 </head>
 <body>
@@ -53,32 +71,63 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
+    /* Backgrounds */
     --bg-base:       #08080f;
     --bg-surface:    #0f0f1a;
     --bg-elevated:   #161625;
     --bg-hover:      #1c1c2e;
+    /* Borders */
     --border:        #1e1e35;
     --border-bright: #2d2d50;
+    /* Accent */
     --accent:        oklch(65% 0.28 268);
     --accent-dim:    oklch(55% 0.22 268);
     --accent-bright: oklch(72% 0.3 268);
     --accent-muted:  oklch(65% 0.28 268 / 0.15);
     --accent-glow:   0 0 28px oklch(65% 0.28 268 / 0.35);
+    /* Status */
     --success:       oklch(68% 0.2 155);
     --danger:        oklch(62% 0.22 25);
     --warn:          oklch(75% 0.18 70);
+    /* Foreground */
     --fg-1:          #f0f0fa;
     --fg-2:          #9898b8;
     --fg-3:          #55557a;
     --fg-4:          #35355a;
+    /* Fonts */
     --font-display:  'Syne', sans-serif;
     --font-body:     'DM Sans', sans-serif;
     --font-mono:     'JetBrains Mono', monospace;
+    /* Component-specific */
+    --nav-bg:         rgba(8, 8, 15, 0.88);
+    --nav-bg-solid:   rgba(8, 8, 15, 0.96);
+    --code-bg:        #0a0a14;
+    --code-label-bg:  #0f0f1a;
+    --mermaid-bg:     rgba(15, 15, 26, 0.6);
+    --table-stripe:   rgba(15, 15, 26, 0.5);
   }
 
-  html {
-    scroll-behavior: smooth;
+  /* ── LIGHT THEME ── */
+  [data-theme="light"] {
+    --bg-base:       #f5f5fd;
+    --bg-surface:    #ededf8;
+    --bg-elevated:   #e4e4f0;
+    --bg-hover:      #d8d8ec;
+    --border:        #d0d0e4;
+    --border-bright: #b4b4cc;
+    --fg-1:          #0c0c1e;
+    --fg-2:          #3c3c5c;
+    --fg-3:          #6a6a98;
+    --fg-4:          #9898c0;
+    --nav-bg:         rgba(245, 245, 253, 0.88);
+    --nav-bg-solid:   rgba(242, 242, 250, 0.96);
+    --code-bg:        #e6e6f2;
+    --code-label-bg:  #dcdcec;
+    --mermaid-bg:     rgba(228, 228, 240, 0.8);
+    --table-stripe:   rgba(228, 228, 240, 0.6);
   }
+
+  html { scroll-behavior: smooth; }
 
   body {
     background: var(--bg-base);
@@ -89,6 +138,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
+    transition: background-color 250ms, color 250ms;
   }
 
   ::-webkit-scrollbar { width: 6px; background: var(--bg-base); }
@@ -96,9 +146,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
   a { color: var(--accent); text-decoration: none; }
 
-  /* Mermaid diagram containers */
+  /* Mermaid */
   .mermaid {
-    background: rgba(15, 15, 26, 0.6);
+    background: var(--mermaid-bg);
     border-radius: 10px;
     padding: 24px;
     border: 1px solid var(--border);
@@ -109,78 +159,138 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   }
   .mermaid svg { max-width: 100%; height: auto; }
 
-  /* Prose overrides for the design system */
-  .prose pre {
-    background: #0a0a14 !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
+  /* ── PROSE ── */
+
+  .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    scroll-margin-top: 80px;
   }
+  .prose h1 {
+    font-family: var(--font-body); font-weight: 600;
+    font-size: 26px; line-height: 1.3; color: var(--fg-1);
+    letter-spacing: -0.02em; margin-top: 0; margin-bottom: 20px;
+  }
+  .prose h2 {
+    font-family: var(--font-body); font-weight: 600;
+    font-size: 22px; line-height: 1.5; color: var(--fg-1);
+    letter-spacing: -0.02em;
+    margin-top: 40px; margin-bottom: 16px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  }
+  .prose h3 {
+    font-family: var(--font-body); font-weight: 600;
+    font-size: 16px; line-height: 1.5; color: var(--fg-1);
+    margin-top: 28px; margin-bottom: 10px;
+  }
+  .prose h4 {
+    font-size: 14px; font-weight: 600; color: var(--fg-1);
+    margin-top: 20px; margin-bottom: 8px;
+  }
+
+  .prose p { font-size: 14px; color: var(--fg-2); line-height: 1.75; margin-bottom: 16px; }
+
+  .prose a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: oklch(65% 0.28 268 / 0.35);
+    text-underline-offset: 3px;
+    transition: color 150ms, text-decoration-color 150ms;
+  }
+  .prose a:hover {
+    color: var(--accent-bright);
+    text-decoration-color: var(--accent-bright);
+  }
+
+  .prose strong { color: var(--fg-1); font-weight: 600; }
+  .prose em { color: var(--fg-2); }
+
+  .prose ul, .prose ol {
+    color: var(--fg-2); font-size: 14px; line-height: 1.85;
+    padding-left: 22px; margin-bottom: 16px;
+  }
+  .prose ul { list-style: disc; }
+  .prose ol { list-style: decimal; }
+  .prose li { margin-bottom: 5px; }
+  .prose li > ul, .prose li > ol { margin-top: 5px; margin-bottom: 2px; }
+
+  .prose blockquote {
+    border-left: 3px solid var(--accent);
+    background: oklch(65% 0.28 268 / 0.06);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 20px 0;
+    font-style: italic;
+  }
+  .prose blockquote p { color: var(--fg-2); margin-bottom: 0; }
+
+  .prose hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  .prose table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px; margin: 24px 0;
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  }
+  .prose table th {
+    background: var(--bg-elevated); color: var(--fg-1);
+    font-weight: 600; font-size: 11.5px; text-align: left;
+    padding: 10px 16px; letter-spacing: 0.03em;
+    border-bottom: 1px solid var(--border-bright);
+    white-space: nowrap;
+  }
+  .prose table td {
+    color: var(--fg-2); padding: 10px 16px;
+    vertical-align: middle; border-bottom: 1px solid var(--border);
+  }
+  .prose table tr:last-child td { border-bottom: none; }
+  .prose table tbody tr:nth-child(even) { background: var(--table-stripe); }
+  .prose table tbody tr:hover { background: var(--bg-hover); transition: background 120ms; }
+  .prose .table-wrap { overflow-x: auto; margin: 24px 0; border-radius: 8px; }
+  .prose .table-wrap table { margin: 0; }
+
   .prose code:not(pre code) {
     color: var(--success);
     background: oklch(68% 0.2 155 / 0.1);
     border: 1px solid oklch(68% 0.2 155 / 0.2);
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-size: 0.85em;
+    border-radius: 4px; padding: 1px 6px; font-size: 0.85em;
   }
   .prose code:not(pre code)::before,
   .prose code:not(pre code)::after { content: none; }
-  .prose h1 {
-    font-family: var(--font-body);
-    font-weight: 600;
-    font-size: 26px;
-    line-height: 1.3;
-    color: var(--fg-1);
-    letter-spacing: -0.02em;
-    margin-top: 0;
-    margin-bottom: 20px;
-  }
-  .prose h2 {
-    font-family: var(--font-body);
-    font-weight: 600;
-    font-size: 22px;
-    line-height: 1.5;
-    color: var(--fg-1);
-    letter-spacing: -0.02em;
-    margin-top: 36px;
-    margin-bottom: 16px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border);
-  }
-  .prose h3 {
-    font-family: var(--font-body);
-    font-weight: 600;
-    font-size: 16px;
-    line-height: 1.5;
-    color: var(--fg-1);
-    margin-top: 24px;
-    margin-bottom: 10px;
-  }
-  .prose p { font-size: 14px; color: var(--fg-2); line-height: 1.75; margin-bottom: 14px; }
-  .prose ul, .prose ol { color: var(--fg-2); font-size: 14px; line-height: 2; }
-  .prose blockquote {
-    border-left-color: var(--accent);
-    background: oklch(65% 0.28 268 / 0.06);
-    border-radius: 0 8px 8px 0;
-  }
-  .prose table th { background: var(--bg-surface); color: var(--fg-1); }
-  .prose table tr:nth-child(even) { background: rgba(15,15,26,0.4); }
-  .prose hr { border-color: var(--border); }
-  .prose a { color: var(--accent); }
-  .prose a:hover { color: var(--accent-bright); }
 
-  /* Code block language label */
-  .prose pre { position: relative !important; padding-top: 36px !important; }
+  .prose pre {
+    background: var(--code-bg) !important;
+    color: var(--fg-1) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    position: relative !important;
+    padding-top: 36px !important;
+    overflow-x: auto;
+  }
+  .prose pre code { word-break: normal; color: inherit; }
   .code-lang-label {
     position: absolute; top: 0; left: 0; right: 0;
     padding: 5px 14px;
-    background: #0f0f1a; border-bottom: 1px solid var(--border);
+    background: var(--code-label-bg); border-bottom: 1px solid var(--border);
     font-family: var(--font-mono); font-size: 10px; color: var(--fg-4);
     text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;
     border-radius: 8px 8px 0 0;
   }
 
+  .prose img {
+    max-width: 100%; border-radius: 8px;
+    border: 1px solid var(--border); margin: 20px 0;
+  }
+
+  @media (max-width: 480px) {
+    .mermaid { padding: 16px; }
+    .prose pre { padding-top: 32px !important; }
+    .prose table th, .prose table td { padding: 8px 12px; }
+  }
+
   /* Changelog version entries */
   .changelog-content h2 { display: flex; align-items: center; gap: 12px; }
   .changelog-content h2::before { content: 'v'; color: var(--accent); font-family: var(--font-mono); font-size: 14px; }
+
+  /* docs-header light mode override */
+  [data-theme="light"] #docs-header {
+    background: var(--nav-bg-solid) !important;
+  }
 </style>

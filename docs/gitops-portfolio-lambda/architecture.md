@@ -11,23 +11,21 @@ O `portfolio-hub` é um site estático que agrega metadados, documentação e ch
 
 ```mermaid
 flowchart TB
-    subgraph Projetos["Repositórios de Projeto"]
-        PT["project-template\n(ou qualquer repo)"]
+    subgraph Projetos["Projetos externos"]
+        PT["project-template"]
     end
 
-    subgraph Hub["portfolio-hub (.github/workflows)"]
-        PU["project-update.yml\n(repository_dispatch)"]
-        RD["receive-docs.yml\n(update-docs)"]
-        RR["receive-release.yml\n(new-release)"]
-        CL["changelog.yml"]
-        DP["deploy.yml"]
+    subgraph Hub["portfolio-hub — workflows"]
+        PU["project-update.yml"]
+        RD["receive-docs.yml"]
+        RR["receive-release.yml"]
     end
 
-    subgraph Conteudo["Conteúdo versionado"]
-        META["projects/*.json"]
-        DOCS["docs/slug/*.md"]
-        CHANGELOGS["changelogs/*.md"]
-        BLOG["content/blog/*.md"]
+    subgraph Files["Arquivos versionados"]
+        META["projects/slug.json"]
+        DOCS["docs/slug/"]
+        CHANGELOGS["changelogs/slug.md"]
+        BLOG["content/blog/"]
     end
 
     ASTRO["Astro build"]
@@ -40,7 +38,6 @@ flowchart TB
     PU --> META
     PU --> DOCS
     PU --> CHANGELOGS
-
     RD --> DOCS
     RR --> META
     RR --> CHANGELOGS
@@ -114,42 +111,44 @@ O Astro lê todos os arquivos no build e gera HTML estático. Não há fetch de 
 
 ### deploy.yml
 
-Dispara em todo push para `main`. Faz o build do Astro e publica no GitHub Pages.
+Dispara em todo push para `main` (inclusive via `workflow_dispatch`). Executa dois jobs em sequência: `build` (Astro) e `deploy` (GitHub Pages).
 
 ```mermaid
 flowchart LR
-    A["push em main"] --> B["Astro build"]
-    B --> C["GitHub Pages"]
+    A["push em main"] --> B["build - npm run build"]
+    B --> C["upload artifact"]
+    C --> D["deploy - GitHub Pages"]
 ```
 
 ### changelog.yml
 
-Dispara em push para `main` (exceto mudanças em `docs/`, `content/`, `projects/`). Gera o `CHANGELOG.md` do próprio hub usando conventional-changelog e commita com `[skip ci]`.
+Dispara em push para `main`, ignorando mudanças em `CHANGELOG.md`, `docs/`, `content/` e `projects/`. Gera o `CHANGELOG.md` do próprio hub com conventional-changelog e commita com `[skip ci]`.
 
 ### project-update.yml
 
 Dispara via `repository_dispatch: project-update`. Usado pelo `project-template` após cada release.
 
 **O que faz:**
-1. Cria `projects/<slug>.json` se não existir
-2. Atualiza todos os campos de metadados (versão, descrição, tags, repo_url)
+1. Cria ou atualiza `projects/<slug>.json` com versão, descrição, tags e repo_url
+2. Preserva `status` existente (default `active` na criação)
 3. Busca `CHANGELOG.md` do repositório → `changelogs/<slug>.md`
 4. Busca `docs/README.md`, `docs/architecture.md`, `docs/usage.md` → `docs/<slug>/`
-5. Commita e faz push (usa `PORTFOLIO_TOKEN` para disparar o deploy)
+5. Commita e faz push com `PORTFOLIO_TOKEN` (dispara o deploy)
 
 ```mermaid
 sequenceDiagram
-    participant Repo as Repositório do Projeto
+    participant Repo as Projeto externo
     participant Hub as portfolio-hub
     participant Pages as GitHub Pages
 
     Repo->>Hub: repository_dispatch: project-update
-    Hub->>Hub: atualiza projects/<slug>.json
+    Hub->>Hub: atualiza projects/slug.json
     Hub->>Repo: GET CHANGELOG.md
-    Hub->>Repo: GET docs/*.md
-    Hub->>Hub: commita mudanças
-    Hub->>Pages: deploy.yml dispara
-    Pages-->>Repo: site atualizado
+    Hub->>Repo: GET docs/README.md
+    Hub->>Repo: GET docs/architecture.md
+    Hub->>Repo: GET docs/usage.md
+    Hub->>Hub: commit e push
+    Hub->>Pages: deploy.yml dispara automaticamente
 ```
 
 ### receive-docs.yml
@@ -201,10 +200,10 @@ Projetos criados a partir do `project-template` têm três workflows próprios:
 
 ```mermaid
 flowchart LR
-    F["feature/** ou bug/**"] -->|"push → ci.yml"| D["develop\n(PR automático)"]
-    D -->|"merge → promote.yml"| M["main\n(PR automático)"]
-    M -->|"merge → release.yml"| R["vX.Y.Z\nCHANGELOG\nGitHub Release"]
-    R -->|"repository_dispatch\nproject-update"| H["portfolio-hub"]
+    F["feature/ ou bug/"] -->|"push - ci.yml"| D["develop"]
+    D -->|"merge - promote.yml"| M["main"]
+    M -->|"merge - release.yml"| R["vX.Y.Z + release"]
+    R -->|"project-update dispatch"| H["portfolio-hub"]
     H -->|"deploy.yml"| P["GitHub Pages"]
 ```
 
@@ -214,14 +213,24 @@ flowchart LR
 | `promote.yml` | push em `develop` | Abre PR automático para `main` |
 | `release.yml` | push em `main` | Bump de versão, changelog, tag, release, notifica hub |
 
+### release.yml — lógica de bump
+
+| Commits contêm | Bump | Exemplo |
+|---|---|---|
+| `tipo!:` ou `BREAKING CHANGE` | major | `1.2.0 -> 2.0.0` |
+| `feat:` | minor | `1.2.0 -> 1.3.0` |
+| qualquer outro | patch | `1.2.0 -> 1.2.1` |
+
+Mudanças apenas em `docs/` não disparam bump — o `release.yml` detecta isso e encerra sem criar tag.
+
 ## Fluxo de build
 
 ```mermaid
 flowchart LR
-    A["projects/*.json"] --> D["Astro build"]
-    B["docs/<slug>/*.md"] --> D
-    C["changelogs/*.md"] --> D
-    E["content/blog/*.md"] --> D
+    A["projects/slug.json"] --> D["Astro build"]
+    B["docs/slug/"] --> D
+    C["changelogs/slug.md"] --> D
+    E["content/blog/"] --> D
     D --> F["HTML estático"]
     F --> G["GitHub Pages"]
 ```
@@ -265,6 +274,7 @@ A interface foi construída para leitura técnica:
 - cards com filtros por tag e status na homepage
 - sidebar de documentação gerada a partir dos arquivos em `docs/<slug>/`
 - renderização de Markdown com suporte nativo a Mermaid
+- âncoras automáticas em todos os headings para navegação por índice
 
 ## Escalabilidade
 

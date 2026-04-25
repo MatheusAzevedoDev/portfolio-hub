@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { marked } from 'marked';
+import { parseMarkdown } from '../../lib/markdown';
 import { SITE_CONFIG } from '../../config';
 
 export function getStaticPaths() {
@@ -48,7 +48,7 @@ const description = meta.description ? String(meta.description) : undefined;
 const date = String(meta.date || '');
 const tags: string[] = Array.isArray(meta.tags) ? meta.tags : [];
 
-const html = String(marked.parse(content));
+const html = parseMarkdown(content);
 
 function formatDate(iso: string): string {
   if (!iso) return '';
@@ -187,6 +187,10 @@ const initials = SITE_CONFIG.siteName
   /* ── RESPONSIVE ── */
   @media (max-width: 768px) {
     .article-wrap { padding: 40px 20px 80px; }
+  }
+  @media (max-width: 480px) {
+    .article-wrap { padding: 28px 16px 60px; }
+    .article-desc { font-size: 14px; }
   }
 </style>
 

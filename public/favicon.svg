@@ -1,5 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="#6366f1" opacity="0.9"/>
-  <polygon points="16,7 23,11 23,19 16,23 9,19 9,11" fill="#0f172a"/>
-  <circle cx="16" cy="15" r="3" fill="#6366f1"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 32" fill="none">
+  <style>
+    .fg  { stroke: #0c0c1e; }
+    .acc { stroke: #7060f0; }
+    @media (prefers-color-scheme: dark) {
+      .fg  { stroke: #f0f0fa; }
+      .acc { stroke: #8474f5; }
+    }
+  </style>
+  <line x1="4"  y1="28" x2="4"  y2="8"  stroke-width="3" stroke-linecap="round" class="fg"/>
+  <line x1="4"  y1="8"  x2="20" y2="22" stroke-width="3" stroke-linecap="round" class="fg"/>
+  <line x1="20" y1="4"  x2="4"  y2="8"  stroke-width="3" stroke-linecap="round" class="acc"/>
+  <line x1="20" y1="4"  x2="36" y2="8"  stroke-width="3" stroke-linecap="round" class="acc"/>
+  <line x1="20" y1="22" x2="36" y2="8"  stroke-width="3" stroke-linecap="round" class="fg"/>
+  <line x1="36" y1="8"  x2="36" y2="28" stroke-width="3" stroke-linecap="round" class="fg"/>
 </svg>
