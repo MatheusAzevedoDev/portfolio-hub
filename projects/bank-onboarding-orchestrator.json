@@ -1,0 +1,15 @@
+{
+  "name": "bank-onboarding-orchestrator",
+  "display_name": "Bank Onboarding Orchestrator",
+  "version": "0.2.0",
+  "description": "Este projeto simula um cenário real de backend distribuído — semelhante ao que é utilizado em bancos, fintechs e plataformas cloud como AWS Step Functions. O sistema executa etapas de onboarding de forma ordenada, controla o estado da execução, aplica retry automático em falhas, executa rollback via compensação (padrão Saga) e garante idempotência por CPF.",
+  "repo_url": "https://github.com/MatheusAzevedoDev/bank-onboarding-orchestrator",
+  "tags": [
+    "go",
+    "gin",
+    "clean-arc"
+  ],
+  "status": "active",
+  "changelog_updated_at": "2026-04-27T21:40:54Z",
+  "docs_updated_at": "2026-04-27T21:40:54Z"
+}
