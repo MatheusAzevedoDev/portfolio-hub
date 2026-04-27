@@ -1,0 +1,11 @@
+{
+  "name": "seu-projeto",
+  "display_name": "Seu Projeto",
+  "version": "0.1.6",
+  "description": "Descrição do projeto",
+  "repo_url": "https://github.com/MatheusAzevedoDev/bank-onboarding-orchestrator",
+  "tags": [],
+  "status": "active",
+  "changelog_updated_at": "2026-04-27T21:29:31Z",
+  "docs_updated_at": "2026-04-27T21:29:31Z"
+}
